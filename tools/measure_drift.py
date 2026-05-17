@@ -39,17 +39,19 @@ def _text_of(content) -> str:
 
 
 def harvest_cc(jsonl_path: str, max_pairs: int = 50):
-    """Two kinds of pairs:
-    - mode='full': prompt = concat of all prior messages (mixes tokenizer drift with system-prompt/tool-schema overhead).
-    - mode='delta': per-turn delta = (actual_i - actual_{i-1}) vs cl100k of NEW content added since last turn.
-      Isolates tokenizer-level drift from fixed prefix overhead.
-    Actual provider input = usage.input_tokens + cache_creation_input_tokens + cache_read_input_tokens.
+    """For each assistant turn, pair cl100k(prompt-text-so-far) with the per-request
+    provider input.  Provider input = ``input_tokens + cache_creation + cache_read``
+    (all three together = total tokens the model actually processed for this request;
+    cache vs fresh is a billing optimization, not a tokenization difference).
+
+    Note: drift methodology is *linear regression*, not delta subtraction. The
+    earlier delta approach was incorrect because ``usage.input_tokens`` is a
+    per-request total, not a cumulative running counter, so ``a_i - a_{i-1}``
+    has no meaningful semantics. We expose ``mode="per_request"`` pairs and let
+    ``fit_calibration`` compute ``(slope, intercept)`` over the population.
     """
     msgs = []
     pairs = []
-    prev_actual = None
-    prev_total_text_len = 0
-    new_chunks = []
     for line in open(jsonl_path, encoding="utf-8", errors="ignore"):
         try:
             d = json.loads(line)
@@ -68,35 +70,22 @@ def harvest_cc(jsonl_path: str, max_pairs: int = 50):
                    + (usage.get("cache_creation_input_tokens", 0) or 0) \
                    + (usage.get("cache_read_input_tokens", 0) or 0)
             if actual > 100 and est > 100:
-                pairs.append({"backend": "cc", "mode": "full", "estimate": est, "actual": actual,
+                pairs.append({"backend": "cc", "mode": "per_request",
+                              "estimate": est, "actual": actual,
                               "chars": len(prompt_text), "src": os.path.basename(jsonl_path)})
-                # delta
-                if prev_actual is not None and new_chunks:
-                    new_text = "\n".join(new_chunks)
-                    d_est = cl100k_count(new_text)
-                    d_actual = actual - prev_actual
-                    if d_est > 50 and d_actual > 50:
-                        pairs.append({"backend": "cc", "mode": "delta", "estimate": d_est, "actual": d_actual,
-                                      "chars": len(new_text), "src": os.path.basename(jsonl_path)})
-                prev_actual = actual
-                new_chunks = []
                 if len(pairs) >= max_pairs:
                     return pairs
         msgs.append((role or "?", text))
-        new_chunks.append(text)
     return pairs
 
 
 def harvest_oc(jsonl_path: str, max_pairs: int = 50):
-    """For each token_count event with last_token_usage:
-    - mode='full': cl100k of all messages so far vs last_token_usage.input_tokens.
-    - mode='delta': cl100k of NEW content added since previous token_count vs delta in input_tokens.
-      Isolates tokenizer drift from fixed system-prompt/tool-schema overhead.
+    """For each ``token_count`` event, pair cl100k(messages-so-far) with
+    ``last_token_usage.input_tokens`` (the per-request total the provider
+    counted; ``cached_input_tokens`` is a subset, NOT additive).
     """
     msgs = []
     pairs = []
-    prev_actual = None
-    new_chunks = []
     for line in open(jsonl_path, encoding="utf-8", errors="ignore"):
         try:
             d = json.loads(line)
@@ -106,10 +95,10 @@ def harvest_oc(jsonl_path: str, max_pairs: int = 50):
         ptype = pl.get("type")
         if ptype == "message":
             t = _text_of(pl.get("content"))
-            msgs.append((pl.get("role", "?"), t)); new_chunks.append(t)
+            msgs.append((pl.get("role", "?"), t))
         elif ptype in ("function_call", "function_call_output", "reasoning"):
             t = _text_of(pl.get("output") or pl.get("arguments") or pl.get("summary") or "")
-            msgs.append((ptype, t)); new_chunks.append(t)
+            msgs.append((ptype, t))
         elif ptype == "token_count":
             info = pl.get("info") or {}
             last = (info.get("last_token_usage") or {})
@@ -119,17 +108,9 @@ def harvest_oc(jsonl_path: str, max_pairs: int = 50):
             prompt_text = "\n".join(t for _, t in msgs)
             est = cl100k_count(prompt_text)
             if actual > 100 and est > 100:
-                pairs.append({"backend": "oc", "mode": "full", "estimate": est, "actual": actual,
+                pairs.append({"backend": "oc", "mode": "per_request",
+                              "estimate": est, "actual": actual,
                               "chars": len(prompt_text), "src": os.path.basename(jsonl_path)})
-                if prev_actual is not None and new_chunks:
-                    new_text = "\n".join(new_chunks)
-                    d_est = cl100k_count(new_text)
-                    d_actual = actual - prev_actual
-                    if d_est > 50 and d_actual > 50:
-                        pairs.append({"backend": "oc", "mode": "delta", "estimate": d_est, "actual": d_actual,
-                                      "chars": len(new_text), "src": os.path.basename(jsonl_path)})
-                prev_actual = actual
-                new_chunks = []
                 if len(pairs) >= max_pairs:
                     return pairs
     return pairs
@@ -157,9 +138,33 @@ def harvest_hermes(jsonl_path: str, max_pairs: int = 50):
     est = cl100k_count(prompt_text)
     if est < 100:
         return []
-    return [{"backend": "hermes", "mode": "full", "estimate": est, "actual": est,
+    return [{"backend": "hermes", "mode": "per_request", "estimate": est, "actual": est,
              "chars": len(prompt_text), "src": os.path.basename(jsonl_path),
              "synthetic": True}]
+
+
+def fit_calibration(pairs):
+    """Least-squares fit ``actual ≈ slope * estimate + intercept`` per backend.
+    Returns ``{"slope": float, "intercept": int, "n": int, "r2": float}``.
+    """
+    if len(pairs) < 3:
+        return None
+    xs = [float(p["estimate"]) for p in pairs]
+    ys = [float(p["actual"]) for p in pairs]
+    n = len(xs)
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    num = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    den = sum((x - mx) ** 2 for x in xs)
+    if den == 0:
+        return None
+    slope = num / den
+    intercept = my - slope * mx
+    ss_tot = sum((y - my) ** 2 for y in ys)
+    ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(xs, ys))
+    r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+    return {"slope": round(slope, 4), "intercept": int(round(intercept)),
+            "n": n, "r2": round(r2, 4)}
 
 
 def drift_stats(pairs):
@@ -213,6 +218,7 @@ def main():
         by.setdefault(key, []).append(p)
 
     summary = {k: {"stats": drift_stats(v),
+                   "fit": fit_calibration([p for p in v if not p.get("synthetic")]),
                    "sessions": sorted({p["src"] for p in v})}
                for k, v in by.items()}
 

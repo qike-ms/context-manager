@@ -20,6 +20,8 @@ from .memory import (
 from .token_estimator import (
     estimate_tokens,
     estimate_messages_tokens,
+    set_calibration,
+    CALIBRATION,
     CORRECTION_FACTORS,
     OVERHEAD_TOKENS,
 )
@@ -34,6 +36,8 @@ __all__ = [
     "HermesMemoryBackend",
     "estimate_tokens",
     "estimate_messages_tokens",
+    "set_calibration",
+    "CALIBRATION",
     "CORRECTION_FACTORS",
     "OVERHEAD_TOKENS",
 ]
