@@ -17,6 +17,12 @@ from .memory import (
     HermesMemoryBackend,
     MemorySearch,
 )
+from .token_estimator import (
+    estimate_tokens,
+    estimate_messages_tokens,
+    CORRECTION_FACTORS,
+    OVERHEAD_TOKENS,
+)
 
 __all__ = [
     "ContextStore",
@@ -26,6 +32,10 @@ __all__ = [
     "MemoryBackend",
     "NoopMemoryBackend",
     "HermesMemoryBackend",
+    "estimate_tokens",
+    "estimate_messages_tokens",
+    "CORRECTION_FACTORS",
+    "OVERHEAD_TOKENS",
 ]
 
 __version__ = "0.1.0"
