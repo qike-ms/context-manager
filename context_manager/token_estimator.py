@@ -7,8 +7,8 @@ Spike 4 (qike-ms/my-ai-skills#5) measured tokenizer drift between a single
 reported by three backends on 5 real long sessions per backend:
 
     backend  uncalibrated median drift    fit       calibrated median err
-    cc       +98.7%                       slope=0.096, intercept=48_784   5.3%
-    oc       +54.9%                       slope=1.258, intercept=15_158   4.8%
+    cc       +98.7%                       slope=0.096, intercept=48_784   13.4%
+    oc       +54.9%                       slope=1.258, intercept=15_158    4.6%
     hermes   n/a (no usage data persisted; provisional)
 
 Uncalibrated ``cl100k_base`` exceeds the 15% drift bar from the spike brief
@@ -185,13 +185,24 @@ def _apply_calibration(raw: int, backend: str, include_overhead: bool) -> int:
 
 
 def _messages_raw(messages: Iterable[Mapping]) -> int:
-    total = 0
+    """Count cl100k tokens across the flattened content of all messages.
+
+    This MUST match exactly what tools/measure_drift.py's harvesters feed to
+    cl100k_count when fitting the calibration — otherwise the published
+    (slope, intercept) numbers don't actually predict the public API's
+    output. The harvester joins per-message text with ``"\\n"`` and counts
+    the resulting single string with cl100k; we do the same here. No
+    per-message framing constant is added — any per-request fixed cost is
+    absorbed into the regression intercept.
+    """
+    parts = []
     for m in messages or []:
         if not isinstance(m, Mapping):
             continue
-        total += 4  # per-message framing
-        total += _cl100k(_flatten_content(m.get("content")))
-    return total
+        parts.append(_flatten_content(m.get("content")))
+    if not parts:
+        return 0
+    return _cl100k("\n".join(parts))
 
 
 def _flatten_content(content) -> str:

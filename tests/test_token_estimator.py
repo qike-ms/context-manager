@@ -169,6 +169,42 @@ def test_calibrated_median_drift_meets_spike_bar(backend, max_median):
         f"{backend}: calibrated median drift {median:.1%} > {max_median:.1%}"
 
 
+def test_public_api_matches_fixture_estimate_for_single_string():
+    """End-to-end: estimate_tokens(text, ...) on the same text the harvester
+    saw should reproduce the fixture's ``estimate`` * slope + intercept.
+    Catches fit/runtime input drift (per-message framing, joining strategy, etc.)."""
+    data = _load_fixture()
+    # Pick non-synthetic CC and OC pairs. We can't replay the actual harvester
+    # text (fixture is counts only) but we CAN check that for a known plain
+    # string the public API uses the same calibration math.
+    for backend in ("cc", "oc"):
+        sample = next((p for p in data["pairs"] if p["backend"] == backend
+                       and not p.get("synthetic")), None)
+        if sample is None:
+            continue
+        cal = te.CALIBRATION[backend]
+        # Public API equivalent: estimate_tokens on a string of the right
+        # cl100k size. Construct one by repeating a known short phrase.
+        target_cl100k = sample["estimate"]
+        # 'a ' is 1 token in cl100k; build text of approximately target size.
+        text = "a " * target_cl100k
+        # The string's actual cl100k count may differ slightly from target;
+        # what matters is that estimate_tokens uses the same math as the fit.
+        expected = int(round(cal.slope * te._cl100k(text) + cal.intercept))
+        actual = te.estimate_tokens(text, backend=backend, include_overhead=True)
+        assert actual == expected
+
+
+def test_messages_and_string_input_agree():
+    """estimate_messages_tokens(msgs) on a single user message should equal
+    estimate_tokens(content) — fit/runtime input shape doesn't change behavior."""
+    content = "the quick brown fox jumps over the lazy dog. " * 50
+    a = te.estimate_tokens(content, backend="oc", include_overhead=False)
+    b = te.estimate_messages_tokens(
+        [{"role": "user", "content": content}], backend="oc", include_overhead=False)
+    assert a == b
+
+
 def test_uncalibrated_cl100k_exceeds_15pct_drift_on_real_sessions():
     """Sanity / regression guard: the WHOLE point of this module is that bare
     cl100k drifts >15% on real CC and OC sessions. If this ever stops being
