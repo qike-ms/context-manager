@@ -159,8 +159,11 @@ class ContextStore:
         tool_call_id: Optional[str] = None,
         metadata: Optional[dict] = None,
     ) -> int:
-        """Append a message; auto-creates the session if missing. Returns row id."""
-        self.ensure_session(session_id)
+        """Append a message; auto-creates the session if missing. Returns row id.
+
+        INSERT(messages) + UPDATE(sessions.message_count) are wrapped in a
+        single transaction to keep the counter in sync with reality.
+        """
         tool_calls_json = (
             json.dumps(tool_calls)
             if tool_calls is not None and not isinstance(tool_calls, str)
@@ -168,26 +171,38 @@ class ContextStore:
         )
         metadata_json = json.dumps(metadata) if metadata else None
         with self._lock:
-            cur = self._conn.execute(
-                """INSERT INTO messages
-                   (session_id, role, content, tool_name, tool_calls,
-                    tool_call_id, timestamp, metadata)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    session_id,
-                    role,
-                    content,
-                    tool_name,
-                    tool_calls_json,
-                    tool_call_id,
-                    time.time(),
-                    metadata_json,
-                ),
-            )
-            self._conn.execute(
-                "UPDATE sessions SET message_count = message_count + 1 WHERE id = ?",
-                (session_id,),
-            )
+            # ensure_session inline + INSERT + UPDATE under one BEGIN.
+            self._conn.execute("BEGIN")
+            try:
+                self._conn.execute(
+                    """INSERT OR IGNORE INTO sessions
+                       (id, source, started_at) VALUES (?, ?, ?)""",
+                    (session_id, "dispatcher", time.time()),
+                )
+                cur = self._conn.execute(
+                    """INSERT INTO messages
+                       (session_id, role, content, tool_name, tool_calls,
+                        tool_call_id, timestamp, metadata)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        session_id,
+                        role,
+                        content,
+                        tool_name,
+                        tool_calls_json,
+                        tool_call_id,
+                        time.time(),
+                        metadata_json,
+                    ),
+                )
+                self._conn.execute(
+                    "UPDATE sessions SET message_count = message_count + 1 WHERE id = ?",
+                    (session_id,),
+                )
+                self._conn.execute("COMMIT")
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
             return int(cur.lastrowid or 0)
 
     def get_recent(self, session_id: str, limit: int = 50) -> List[Message]:
@@ -240,11 +255,28 @@ class ContextStore:
             )
 
     def update_metadata(self, session_id: str, **patch: Any) -> dict:
-        """Shallow-merge `patch` into existing metadata and persist. Returns full new metadata."""
-        cur = self.get_metadata(session_id) or {}
-        cur.update(patch)
-        self.set_metadata(session_id, cur)
-        return cur
+        """Atomic shallow-merge of `patch` into existing metadata. Returns full new metadata."""
+        with self._lock:
+            self._conn.execute(
+                """INSERT OR IGNORE INTO sessions
+                   (id, source, started_at) VALUES (?, ?, ?)""",
+                (session_id, "dispatcher", time.time()),
+            )
+            row = self._conn.execute(
+                "SELECT metadata FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            cur: dict = {}
+            if row and row[0]:
+                try:
+                    cur = json.loads(row[0]) or {}
+                except Exception:
+                    cur = {}
+            cur.update(patch)
+            self._conn.execute(
+                "UPDATE sessions SET metadata = ? WHERE id = ?",
+                (json.dumps(cur), session_id),
+            )
+            return cur
 
     def get_summary(self, session_id: str) -> Optional[str]:
         with self._lock:

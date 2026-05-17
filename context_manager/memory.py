@@ -73,15 +73,58 @@ class HermesMemoryBackend(MemoryBackend):
         self.db_path = Path(str(db_path)).expanduser()
         self.source = source
         self._lock = threading.Lock()
-        if not self.db_path.exists():
-            log.warning("Hermes state.db not found at %s; backend will create one on first write", self.db_path)
+        existed = self.db_path.exists()
+        if not existed:
+            log.warning(
+                "Hermes state.db not found at %s; HermesMemoryBackend will create "
+                "a *minimal* schema. This is fine for tests but on a real machine "
+                "you should let Hermes itself bootstrap state.db (run `hermes` once) "
+                "so you get the full FTS triggers and Hermes's own indexes.",
+                self.db_path,
+            )
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(
             str(self.db_path), check_same_thread=False, isolation_level=None
         )
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
+        if not existed:
+            self._bootstrap_minimal_schema()
         self._ensured: set = set()
+
+    def _bootstrap_minimal_schema(self) -> None:
+        """Create the minimum tables we read/write if state.db didn't exist.
+
+        Schema is a permissive subset of Hermes's actual schema (extra columns
+        Hermes adds later via migrations are nullable so this is forward-
+        compatible). We deliberately omit the FTS5 virtual tables — they
+        require Hermes's exact trigger setup and would conflict with Hermes's
+        own bootstrap. `search()` will simply return [] on a fresh DB.
+        """
+        with self._lock:
+            self._conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    source TEXT NOT NULL,
+                    user_id TEXT,
+                    title TEXT,
+                    started_at REAL NOT NULL,
+                    ended_at REAL,
+                    message_count INTEGER DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT,
+                    tool_call_id TEXT,
+                    tool_calls TEXT,
+                    tool_name TEXT,
+                    timestamp REAL NOT NULL
+                );
+                """
+            )
 
     # ---------- write ----------
     def _ensure_session(self, session_key: str, tags: Optional[dict]) -> None:

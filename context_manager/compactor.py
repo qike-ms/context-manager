@@ -63,9 +63,9 @@ class Compactor:
         self.store = store
         self.summarize_fn = summarize_fn
         self.config = config or CompactorConfig()
-        self._queue: asyncio.Queue[str] = asyncio.Queue()
+        self._queue: Optional[asyncio.Queue[str]] = None
         self._task: Optional[asyncio.Task] = None
-        self._stopping = asyncio.Event()
+        self._stopping: Optional[asyncio.Event] = None
 
     async def start(self) -> None:
         if not self.config.enabled:
@@ -73,11 +73,16 @@ class Compactor:
             return
         if self._task is not None:
             return
+        # Bind asyncio primitives to the running loop (Python 3.10+ rejects
+        # loop-less Queue()/Event() construction).
+        self._queue = asyncio.Queue()
+        self._stopping = asyncio.Event()
         self._task = asyncio.create_task(self._run(), name="compactor-worker")
 
     async def stop(self) -> None:
-        self._stopping.set()
-        if self._task is not None:
+        if self._stopping is not None:
+            self._stopping.set()
+        if self._task is not None and self._queue is not None:
             await self._queue.put("__shutdown__")
             try:
                 await asyncio.wait_for(self._task, timeout=5.0)
@@ -87,7 +92,7 @@ class Compactor:
 
     def note_append(self, session_id: str) -> None:
         """Signal that a new turn was appended to `session_id`."""
-        if not self.config.enabled:
+        if not self.config.enabled or self._queue is None:
             return
         try:
             self._queue.put_nowait(session_id)
@@ -104,6 +109,7 @@ class Compactor:
 
     # ---------- internal ----------
     async def _run(self) -> None:
+        assert self._queue is not None and self._stopping is not None
         log.info("Compactor worker started (config=%s)", self.config)
         while not self._stopping.is_set():
             try:

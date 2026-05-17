@@ -66,6 +66,22 @@ def test_noop_memory_backend():
     assert b.search("anything") == []
 
 
+def test_hermes_memory_backend_bootstraps_fresh_db(tmp_path):
+    """Regression: HermesMemoryBackend.__init__ on a non-existent DB must
+    create a minimal schema so the first .remember() works without errors."""
+    from context_manager.store import Message
+    db = tmp_path / "fresh" / "state.db"
+    b = HermesMemoryBackend(db_path=db)
+    b.remember("sess-1", [Message(role="user", content="hi")])
+    import sqlite3
+    rows = sqlite3.connect(db).execute(
+        "SELECT role, content FROM messages WHERE session_id='sess-1'"
+    ).fetchall()
+    assert rows == [("user", "hi")]
+    assert b.search("hi") == []  # no FTS in minimal schema, returns []
+    b.close()
+
+
 def test_hermes_memory_backend_smoke(tmp_path):
     db = tmp_path / "hermes.db"
     # bootstrap minimal hermes-compatible schema for the smoke test
