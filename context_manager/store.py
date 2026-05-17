@@ -219,6 +219,33 @@ class ContextStore:
     def get_all(self, session_id: str) -> List[Message]:
         return self.get_recent(session_id, limit=10**9)
 
+    def get_metadata(self, session_id: str) -> Optional[dict]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT metadata FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        if not row or not row[0]:
+            return None
+        try:
+            return json.loads(row[0])
+        except Exception:
+            return None
+
+    def set_metadata(self, session_id: str, metadata: dict) -> None:
+        self.ensure_session(session_id)
+        with self._lock:
+            self._conn.execute(
+                "UPDATE sessions SET metadata = ? WHERE id = ?",
+                (json.dumps(metadata), session_id),
+            )
+
+    def update_metadata(self, session_id: str, **patch: Any) -> dict:
+        """Shallow-merge `patch` into existing metadata and persist. Returns full new metadata."""
+        cur = self.get_metadata(session_id) or {}
+        cur.update(patch)
+        self.set_metadata(session_id, cur)
+        return cur
+
     def get_summary(self, session_id: str) -> Optional[str]:
         with self._lock:
             row = self._conn.execute(
