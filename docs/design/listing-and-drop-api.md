@@ -73,7 +73,7 @@ forcing soft-delete to be removed.
 def iter_messages(
     self,
     session_id: str,
-    kind: Literal["all", "tool_calls", "text"] = "all",
+    kind: Literal["all", "tool", "text"] = "all",
     offset: int = 0,
     limit: int = 20,
 ) -> list[MessageView]:
@@ -106,7 +106,7 @@ def token_usage(
 
     - active_tokens: SUM(token_estimate) over LIVE rows only
                      (dropped_at IS NULL).
-    - total_seen_or_None: SUM(token_estimate) over ALL physical rows
+    - total_seen: SUM(token_estimate) over ALL physical rows
                           (live + soft-dropped). Distinguishes "what's
                           in the window now" from "what we've ever
                           counted". With hard-delete this is bounded
@@ -349,13 +349,13 @@ listed edge cases. New file: `tests/test_listing_and_drops.py`.
 | Test | What it asserts |
 |------|-----------------|
 | `test_iter_messages_all` | Pagination, oldest-first ordering, returns MessageView shape |
-| `test_iter_messages_kind_filter` | `tool_calls` and `text` kinds segregate correctly |
+| `test_iter_messages_kind_filter` | `tool` and `text` kinds segregate correctly |
 | `test_iter_messages_empty_session` | Unknown session_id returns `[]`, no exception |
 | `test_iter_messages_offset_past_end` | offset > count returns `[]` |
 | `test_token_usage_known_model` | window_pct computed, calibrated=True when all rows estimated |
 | `test_token_usage_uncalibrated` | missing_estimates>0, calibrated=False, window_pct still computed from active_tokens |
 | `test_token_usage_unknown_model` | window_pct is None, window_size is default |
-| `test_token_usage_fallback_to_session_backend` | model=None reads sessions.backend |
+| `test_token_usage_fallback_to_session_model` | model=None reads sessions.model |
 | `test_drop_messages_basic` | Returns count, rows actually gone, message_count decremented |
 | `test_drop_messages_unknown_id` | Unknown ids ignored, returns only-real count |
 | `test_drop_messages_empty_list` | Returns 0, no DB write |
