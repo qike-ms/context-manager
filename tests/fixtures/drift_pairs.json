@@ -1,0 +1,1488 @@
+{
+  "summary": {
+    "cc/per_request": {
+      "stats": {
+        "n": 85,
+        "mean_ratio_actual_over_est": 7.0259,
+        "median_ratio": 1.9868,
+        "mean_signed_drift_pct": 602.59,
+        "median_signed_drift_pct": 98.68,
+        "mean_abs_drift_pct": 612.92,
+        "p90_abs_drift_pct": 2383.11,
+        "max_abs_drift_pct": 5904.9
+      },
+      "fit": {
+        "slope": 0.2071,
+        "intercept": 36905,
+        "n": 85,
+        "r2": 0.3585
+      },
+      "sessions": [
+        "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl",
+        "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl",
+        "710139fe-b25d-4c2a-9904-57235d802447.jsonl",
+        "ce2ff97d-17ee-4589-8d13-faf9a6c85792.jsonl"
+      ]
+    },
+    "oc/per_request": {
+      "stats": {
+        "n": 86,
+        "mean_ratio_actual_over_est": 1.949,
+        "median_ratio": 1.5493,
+        "mean_signed_drift_pct": 94.9,
+        "median_signed_drift_pct": 54.93,
+        "mean_abs_drift_pct": 94.9,
+        "p90_abs_drift_pct": 152.52,
+        "max_abs_drift_pct": 603.74
+      },
+      "fit": {
+        "slope": 1.2575,
+        "intercept": 15158,
+        "n": 86,
+        "r2": 0.9877
+      },
+      "sessions": [
+        "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl",
+        "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl",
+        "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl",
+        "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl",
+        "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+      ]
+    },
+    "hermes/per_request": {
+      "stats": {
+        "n": 5,
+        "mean_ratio_actual_over_est": 1.0,
+        "median_ratio": 1.0,
+        "mean_signed_drift_pct": 0.0,
+        "median_signed_drift_pct": 0.0,
+        "mean_abs_drift_pct": 0.0,
+        "p90_abs_drift_pct": 0.0,
+        "max_abs_drift_pct": 0.0
+      },
+      "fit": null,
+      "sessions": [
+        "20260513_203038_779a381a.jsonl",
+        "20260513_222129_6d293c0c.jsonl",
+        "20260515_082054_1ee87181.jsonl",
+        "20260515_082345_b80b7e06.jsonl",
+        "20260517_120359_96cf64f6.jsonl"
+      ]
+    }
+  },
+  "pairs": [
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 306,
+      "actual": 18375,
+      "chars": 1237,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 707,
+      "actual": 18375,
+      "chars": 1954,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 715,
+      "actual": 18375,
+      "chars": 1998,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 740,
+      "actual": 18375,
+      "chars": 2093,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 815,
+      "actual": 18375,
+      "chars": 2418,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 895,
+      "actual": 18375,
+      "chars": 2745,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 23543,
+      "actual": 47333,
+      "chars": 96008,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 23824,
+      "actual": 47333,
+      "chars": 96495,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 23834,
+      "actual": 47333,
+      "chars": 96546,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 47922,
+      "actual": 79283,
+      "chars": 191621,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 165298,
+      "actual": 79333,
+      "chars": 391993,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 274970,
+      "actual": 79333,
+      "chars": 579963,
+      "src": "195ba45e-19b2-465c-8c91-352e8afd42e1.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 306,
+      "actual": 18363,
+      "chars": 1237,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 580,
+      "actual": 18363,
+      "chars": 1697,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 590,
+      "actual": 18363,
+      "chars": 1745,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 615,
+      "actual": 18363,
+      "chars": 1840,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 671,
+      "actual": 18363,
+      "chars": 2094,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 732,
+      "actual": 18363,
+      "chars": 2350,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 5669,
+      "actual": 24528,
+      "chars": 22358,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 5997,
+      "actual": 24528,
+      "chars": 22929,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 6009,
+      "actual": 24528,
+      "chars": 22992,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 6031,
+      "actual": 24528,
+      "chars": 23068,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 20867,
+      "actual": 44462,
+      "chars": 82674,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 21165,
+      "actual": 44462,
+      "chars": 83183,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 21176,
+      "actual": 44462,
+      "chars": 83242,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 21193,
+      "actual": 44462,
+      "chars": 83321,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 21210,
+      "actual": 44462,
+      "chars": 83401,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 29056,
+      "actual": 55152,
+      "chars": 117990,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 143142,
+      "actual": 55152,
+      "chars": 317022,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 143155,
+      "actual": 55152,
+      "chars": 317082,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 143174,
+      "actual": 55152,
+      "chars": 317165,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 145565,
+      "actual": 58491,
+      "chars": 327666,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 205056,
+      "actual": 58491,
+      "chars": 428344,
+      "src": "710139fe-b25d-4c2a-9904-57235d802447.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 897,
+      "actual": 18532,
+      "chars": 2032,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 917,
+      "actual": 18532,
+      "chars": 2143,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 1520,
+      "actual": 19169,
+      "chars": 4430,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 1617,
+      "actual": 19343,
+      "chars": 4774,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 1639,
+      "actual": 19343,
+      "chars": 4868,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 7560,
+      "actual": 26994,
+      "chars": 28342,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 11856,
+      "actual": 32402,
+      "chars": 45220,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 15320,
+      "actual": 36671,
+      "chars": 57941,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 15337,
+      "actual": 36671,
+      "chars": 58030,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 17589,
+      "actual": 39644,
+      "chars": 66525,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 19453,
+      "actual": 41985,
+      "chars": 73757,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 19477,
+      "actual": 41985,
+      "chars": 73878,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 20182,
+      "actual": 42953,
+      "chars": 76377,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 21235,
+      "actual": 44299,
+      "chars": 80350,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 21247,
+      "actual": 44299,
+      "chars": 80405,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 23616,
+      "actual": 47312,
+      "chars": 89014,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 23637,
+      "actual": 47312,
+      "chars": 89107,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 23959,
+      "actual": 47830,
+      "chars": 90299,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 24302,
+      "actual": 48359,
+      "chars": 91694,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 24324,
+      "actual": 48359,
+      "chars": 91799,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25086,
+      "actual": 49548,
+      "chars": 94706,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25098,
+      "actual": 49548,
+      "chars": 94771,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25356,
+      "actual": 49982,
+      "chars": 95743,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25554,
+      "actual": 50332,
+      "chars": 96465,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25574,
+      "actual": 50332,
+      "chars": 96559,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25927,
+      "actual": 50898,
+      "chars": 97791,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 25943,
+      "actual": 50898,
+      "chars": 97868,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26168,
+      "actual": 51246,
+      "chars": 98616,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26198,
+      "actual": 51344,
+      "chars": 98724,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26223,
+      "actual": 51344,
+      "chars": 98841,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26281,
+      "actual": 51610,
+      "chars": 99058,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26609,
+      "actual": 52138,
+      "chars": 100273,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26628,
+      "actual": 52138,
+      "chars": 100369,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26670,
+      "actual": 52268,
+      "chars": 100534,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26723,
+      "actual": 52390,
+      "chars": 100731,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26745,
+      "actual": 52390,
+      "chars": 100837,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26786,
+      "actual": 52523,
+      "chars": 100993,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26826,
+      "actual": 52632,
+      "chars": 101152,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26921,
+      "actual": 52815,
+      "chars": 101513,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 26942,
+      "actual": 52815,
+      "chars": 101615,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27067,
+      "actual": 53161,
+      "chars": 102053,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27174,
+      "actual": 53358,
+      "chars": 102551,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27195,
+      "actual": 53358,
+      "chars": 102658,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27240,
+      "actual": 53497,
+      "chars": 102854,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27403,
+      "actual": 53768,
+      "chars": 103550,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27417,
+      "actual": 53768,
+      "chars": 103628,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27637,
+      "actual": 54136,
+      "chars": 104690,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27663,
+      "actual": 54136,
+      "chars": 104826,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27888,
+      "actual": 54540,
+      "chars": 105667,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 27911,
+      "actual": 54540,
+      "chars": 105780,
+      "src": "5a0de6c1-c7db-4016-a2f9-7bed79b49ec3.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 45902,
+      "actual": 73380,
+      "chars": 160978,
+      "src": "ce2ff97d-17ee-4589-8d13-faf9a6c85792.jsonl"
+    },
+    {
+      "backend": "cc",
+      "mode": "per_request",
+      "estimate": 46850,
+      "actual": 73380,
+      "chars": 162809,
+      "src": "ce2ff97d-17ee-4589-8d13-faf9a6c85792.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 5298,
+      "actual": 24913,
+      "chars": 23363,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 6443,
+      "actual": 26350,
+      "chars": 27262,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 9712,
+      "actual": 29798,
+      "chars": 39913,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14518,
+      "actual": 35067,
+      "chars": 58830,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 17144,
+      "actual": 37547,
+      "chars": 69296,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 21256,
+      "actual": 41946,
+      "chars": 84759,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 22877,
+      "actual": 43634,
+      "chars": 88911,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 31635,
+      "actual": 52963,
+      "chars": 120186,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 31834,
+      "actual": 53660,
+      "chars": 120795,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 32897,
+      "actual": 54425,
+      "chars": 124650,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 32904,
+      "actual": 54425,
+      "chars": 124677,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 33194,
+      "actual": 53514,
+      "chars": 125870,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 33198,
+      "actual": 53514,
+      "chars": 125881,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 33415,
+      "actual": 53820,
+      "chars": 126605,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 42138,
+      "actual": 62904,
+      "chars": 160888,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 53105,
+      "actual": 74301,
+      "chars": 203043,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 59814,
+      "actual": 82542,
+      "chars": 228829,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 59868,
+      "actual": 85521,
+      "chars": 229077,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 59910,
+      "actual": 87237,
+      "chars": 229215,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 63299,
+      "actual": 90720,
+      "chars": 243017,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 63434,
+      "actual": 92580,
+      "chars": 243481,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 64833,
+      "actual": 94228,
+      "chars": 248948,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 64885,
+      "actual": 95568,
+      "chars": 249197,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 65044,
+      "actual": 99911,
+      "chars": 249672,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 68587,
+      "actual": 103766,
+      "chars": 263479,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 68759,
+      "actual": 106321,
+      "chars": 264151,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 69103,
+      "actual": 107197,
+      "chars": 265307,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 69214,
+      "actual": 108379,
+      "chars": 265669,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 72468,
+      "actual": 111770,
+      "chars": 278016,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 72614,
+      "actual": 112354,
+      "chars": 278510,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 73472,
+      "actual": 113035,
+      "chars": 281815,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 73489,
+      "actual": 113035,
+      "chars": 281888,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 73727,
+      "actual": 105722,
+      "chars": 282690,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 78517,
+      "actual": 110871,
+      "chars": 301983,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 79089,
+      "actual": 111952,
+      "chars": 303894,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 79122,
+      "actual": 115406,
+      "chars": 304069,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 79122,
+      "actual": 118155,
+      "chars": 304069,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 79298,
+      "actual": 118575,
+      "chars": 304628,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 81607,
+      "actual": 121159,
+      "chars": 312914,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 81781,
+      "actual": 121567,
+      "chars": 313545,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 82410,
+      "actual": 122477,
+      "chars": 315599,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 82876,
+      "actual": 122772,
+      "chars": 317153,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 82905,
+      "actual": 122772,
+      "chars": 317280,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 83446,
+      "actual": 122276,
+      "chars": 319620,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 83460,
+      "actual": 122276,
+      "chars": 319668,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 83605,
+      "actual": 122842,
+      "chars": 320159,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 84810,
+      "actual": 124360,
+      "chars": 323752,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 85113,
+      "actual": 124639,
+      "chars": 325175,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 85127,
+      "actual": 124639,
+      "chars": 325231,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 85177,
+      "actual": 124677,
+      "chars": 325454,
+      "src": "rollout-2026-05-15T20-30-19-019e2e30-f0d9-7172-af25-f985ef93b9e2.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 4254,
+      "actual": 24505,
+      "chars": 18383,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 6900,
+      "actual": 27071,
+      "chars": 27645,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 23245,
+      "actual": 43706,
+      "chars": 95769,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 39014,
+      "actual": 59857,
+      "chars": 159935,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 42371,
+      "actual": 63209,
+      "chars": 174534,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 52467,
+      "actual": 73967,
+      "chars": 213627,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 54371,
+      "actual": 75926,
+      "chars": 222068,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 63060,
+      "actual": 87467,
+      "chars": 255489,
+      "src": "rollout-2026-05-17T10-48-45-019e3669-37ef-7db0-801e-a2c4594eea13.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 3373,
+      "actual": 23737,
+      "chars": 14587,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 13454,
+      "actual": 33716,
+      "chars": 52515,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 16020,
+      "actual": 36527,
+      "chars": 63767,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 31948,
+      "actual": 52919,
+      "chars": 126595,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 36374,
+      "actual": 57507,
+      "chars": 146857,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 47836,
+      "actual": 69194,
+      "chars": 192643,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 52158,
+      "actual": 73845,
+      "chars": 210118,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 56033,
+      "actual": 77674,
+      "chars": 224884,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 63462,
+      "actual": 84634,
+      "chars": 250844,
+      "src": "rollout-2026-05-17T13-09-41-019e36ea-3cc2-7923-b72c-4ec9f0dd80a7.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 12741,
+      "actual": 33108,
+      "chars": 52729,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 13062,
+      "actual": 33746,
+      "chars": 53840,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14176,
+      "actual": 35041,
+      "chars": 58111,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14334,
+      "actual": 35137,
+      "chars": 58596,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14486,
+      "actual": 35415,
+      "chars": 59135,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14629,
+      "actual": 35646,
+      "chars": 59568,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14879,
+      "actual": 35915,
+      "chars": 60322,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 15275,
+      "actual": 36532,
+      "chars": 61575,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 15525,
+      "actual": 36643,
+      "chars": 62363,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 25610,
+      "actual": 46848,
+      "chars": 103982,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 31143,
+      "actual": 53812,
+      "chars": 124554,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 32275,
+      "actual": 54558,
+      "chars": 128914,
+      "src": "rollout-2026-05-17T10-21-26-019e3650-34f8-7733-92f7-161777873db4.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 13247,
+      "actual": 33674,
+      "chars": 55097,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 13530,
+      "actual": 34166,
+      "chars": 56067,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 14780,
+      "actual": 35591,
+      "chars": 60923,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 15088,
+      "actual": 35909,
+      "chars": 61906,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 15360,
+      "actual": 36237,
+      "chars": 62749,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 27554,
+      "actual": 48568,
+      "chars": 107841,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "oc",
+      "mode": "per_request",
+      "estimate": 28991,
+      "actual": 49953,
+      "chars": 113576,
+      "src": "rollout-2026-05-17T10-34-05-019e365b-ca2f-7611-a0e9-e7d8796129e3.jsonl"
+    },
+    {
+      "backend": "hermes",
+      "mode": "per_request",
+      "estimate": 28812,
+      "actual": 28812,
+      "chars": 112522,
+      "src": "20260513_222129_6d293c0c.jsonl",
+      "synthetic": true
+    },
+    {
+      "backend": "hermes",
+      "mode": "per_request",
+      "estimate": 17207,
+      "actual": 17207,
+      "chars": 61652,
+      "src": "20260515_082054_1ee87181.jsonl",
+      "synthetic": true
+    },
+    {
+      "backend": "hermes",
+      "mode": "per_request",
+      "estimate": 19115,
+      "actual": 19115,
+      "chars": 73345,
+      "src": "20260513_203038_779a381a.jsonl",
+      "synthetic": true
+    },
+    {
+      "backend": "hermes",
+      "mode": "per_request",
+      "estimate": 9808,
+      "actual": 9808,
+      "chars": 34719,
+      "src": "20260515_082345_b80b7e06.jsonl",
+      "synthetic": true
+    },
+    {
+      "backend": "hermes",
+      "mode": "per_request",
+      "estimate": 8864,
+      "actual": 8864,
+      "chars": 29790,
+      "src": "20260517_120359_96cf64f6.jsonl",
+      "synthetic": true
+    }
+  ]
+}
