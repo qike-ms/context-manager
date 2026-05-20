@@ -27,6 +27,28 @@ store.append(sid, "assistant", "Sunny.")
 messages = store.assemble_context(sid, recent_n=30)  # OpenAI-format list
 ```
 
+## Inspecting & dropping (v0.2)
+
+`ContextStore` provides per-session listing and selective hard-delete:
+
+```python
+# List
+for m in store.iter_messages(sid, kind="all", offset=0, limit=20):
+    print(m.id, m.role, m.kind, m.text_preview)
+
+# Token budget
+store.set_model(sid, "opus-4.7")
+u = store.token_usage(sid)
+print(u.active_tokens, u.window_size, u.window_pct, u.calibrated)
+
+# Hard-DELETE (irreversible)
+store.drop_messages(sid, [3, 5, 8])
+store.drop_by_tool(sid, "search")     # only matches messages.tool_name col
+store.drop_range(sid, from_id=10, to_id=20)
+```
+
+Design + edge cases: `docs/design/listing-and-drop-api.md`.
+
 ## Public API
 
 | Symbol | What |
