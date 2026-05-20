@@ -31,7 +31,7 @@ messages = store.assemble_context(sid, recent_n=30)  # OpenAI-format list
 
 | Symbol | What |
 | --- | --- |
-| `ContextStore` | SQLite per-session message store (append / get_recent / summary). |
+| `ContextStore` | SQLite per-session message store (append / get_recent / summary / pop_last_n / reset). |
 | `Compactor` | Continuous background summarizer (stub — awaits LLM logic). |
 | `MemoryBackend` | Abstract base for long-term memory adapters. |
 | `NoopMemoryBackend` | Default no-op adapter. Always safe. |

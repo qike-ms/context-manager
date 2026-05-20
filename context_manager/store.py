@@ -270,6 +270,71 @@ class ContextStore:
                 self._conn.execute("ROLLBACK")
                 raise
 
+    def reset(self, session_id: str, *, reason: Optional[str] = None) -> int:
+        """Soft-delete ALL live (non-dropped) messages for session_id.
+
+        Marks rows with dropped_at=now, dropped_by='reset', shared drop_batch_id.
+        Zeros sessions.message_count and clears any cached summary. Appends an
+        entry to sessions.metadata['reset_history'] (capped at 10 entries).
+        Auto-creates the session row if missing (mirrors append()).
+        Idempotent: a second call with nothing live returns 0.
+
+        Concurrency: within-process serialized by self._lock. Cross-process
+        contention surfaces as sqlite3.OperationalError (BUSY); caller retries.
+
+        Returns count of rows soft-deleted.
+        """
+        batch_id = uuid.uuid4().hex
+        now = time.time()
+        with self._lock:
+            self._conn.execute("BEGIN")
+            try:
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO sessions (id, source, started_at) "
+                    "VALUES (?, ?, ?)",
+                    (session_id, "dispatcher", now),
+                )
+                cur = self._conn.execute(
+                    "UPDATE messages SET dropped_at=?, dropped_by='reset', "
+                    "drop_batch_id=? WHERE session_id=? AND dropped_at IS NULL",
+                    (now, batch_id, session_id),
+                )
+                flipped = cur.rowcount or 0
+                if flipped:
+                    self._conn.execute(
+                        "UPDATE sessions SET message_count = 0, "
+                        "summary = NULL, summary_updated_at = NULL WHERE id = ?",
+                        (session_id,),
+                    )
+                if flipped or reason is not None:
+                    row = self._conn.execute(
+                        "SELECT metadata FROM sessions WHERE id = ?",
+                        (session_id,),
+                    ).fetchone()
+                    meta: dict = {}
+                    if row and row[0]:
+                        try:
+                            meta = json.loads(row[0]) or {}
+                        except Exception:
+                            meta = {}
+                    history = meta.get("reset_history") or []
+                    history.append({
+                        "at": now,
+                        "batch_id": batch_id,
+                        "reason": reason,
+                        "count": flipped,
+                    })
+                    meta["reset_history"] = history[-10:]
+                    self._conn.execute(
+                        "UPDATE sessions SET metadata = ? WHERE id = ?",
+                        (json.dumps(meta), session_id),
+                    )
+                self._conn.execute("COMMIT")
+                return flipped
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
+
     def get_recent(self, session_id: str, limit: int = 50) -> List[Message]:
         """Return up to `limit` most recent messages in chronological order."""
         with self._lock:
