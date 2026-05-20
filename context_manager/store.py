@@ -13,6 +13,7 @@ import json
 import sqlite3
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Union
@@ -98,6 +99,24 @@ class ContextStore:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.executescript(SCHEMA)
+        self._apply_migrations()
+
+    def _apply_migrations(self) -> None:
+        """Idempotently add soft-delete columns used by pop_last_n / rewind."""
+        with self._lock:
+            cols = {
+                row[1]
+                for row in self._conn.execute("PRAGMA table_info(messages)").fetchall()
+            }
+            for name, decl in (
+                ("dropped_at", "REAL"),
+                ("dropped_by", "TEXT"),
+                ("drop_batch_id", "TEXT"),
+            ):
+                if name not in cols:
+                    self._conn.execute(
+                        f"ALTER TABLE messages ADD COLUMN {name} {decl}"
+                    )
 
     # ---------- sessions ----------
     def ensure_session(
@@ -205,13 +224,59 @@ class ContextStore:
                 raise
             return int(cur.lastrowid or 0)
 
+    def pop_last_n(self, session_id: str, n: int) -> int:
+        """Soft-delete the last `n` non-dropped messages for `session_id`.
+
+        Marks rows with ``dropped_at=now``, ``dropped_by='rewind'`` and a fresh
+        shared ``drop_batch_id``. Also decrements ``sessions.message_count`` by
+        the number of rows actually flipped, all in a single transaction.
+
+        Returns the number of rows soft-deleted (``0`` if nothing to pop).
+        """
+        if n <= 0:
+            return 0
+        batch_id = uuid.uuid4().hex
+        now = time.time()
+        with self._lock:
+            self._conn.execute("BEGIN")
+            try:
+                rows = self._conn.execute(
+                    """SELECT id FROM messages
+                       WHERE session_id = ? AND dropped_at IS NULL
+                       ORDER BY id DESC LIMIT ?""",
+                    (session_id, n),
+                ).fetchall()
+                if not rows:
+                    self._conn.execute("COMMIT")
+                    return 0
+                ids = [r[0] for r in rows]
+                placeholders = ",".join("?" for _ in ids)
+                self._conn.execute(
+                    f"""UPDATE messages
+                        SET dropped_at = ?, dropped_by = 'rewind', drop_batch_id = ?
+                        WHERE id IN ({placeholders})""",
+                    (now, batch_id, *ids),
+                )
+                flipped = len(ids)
+                self._conn.execute(
+                    """UPDATE sessions
+                       SET message_count = MAX(0, message_count - ?)
+                       WHERE id = ?""",
+                    (flipped, session_id),
+                )
+                self._conn.execute("COMMIT")
+                return flipped
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
+
     def get_recent(self, session_id: str, limit: int = 50) -> List[Message]:
         """Return up to `limit` most recent messages in chronological order."""
         with self._lock:
             rows = self._conn.execute(
                 """SELECT id, role, content, tool_name, tool_calls, tool_call_id,
                           timestamp, metadata
-                   FROM messages WHERE session_id = ?
+                   FROM messages WHERE session_id = ? AND dropped_at IS NULL
                    ORDER BY id DESC LIMIT ?""",
                 (session_id, limit),
             ).fetchall()

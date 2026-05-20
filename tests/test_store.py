@@ -114,3 +114,49 @@ def test_hermes_memory_backend_smoke(tmp_path):
     conn.close()
     assert rows == [("user", "hi from dispatcher")]
     b.close()
+
+
+def test_pop_last_n_soft_deletes_and_decrements_count(store):
+    sid = "rewind-topic:None"
+    for i in range(5):
+        store.append(sid, "user", f"u{i}")
+        store.append(sid, "assistant", f"a{i}")
+    assert len(store.get_recent(sid, limit=100)) == 10
+
+    flipped = store.pop_last_n(sid, 4)
+    assert flipped == 4
+    remaining = store.get_recent(sid, limit=100)
+    assert len(remaining) == 6
+    assert [m.content for m in remaining[-2:]] == ["u2", "a2"]
+
+    # message_count decremented
+    row = store._conn.execute(
+        "SELECT message_count FROM sessions WHERE id = ?", (sid,)
+    ).fetchone()
+    assert row[0] == 6
+
+    # dropped rows tagged with rewind + shared batch id
+    rows = store._conn.execute(
+        "SELECT dropped_by, drop_batch_id FROM messages "
+        "WHERE session_id = ? AND dropped_at IS NOT NULL",
+        (sid,),
+    ).fetchall()
+    assert len(rows) == 4
+    assert all(r[0] == "rewind" for r in rows)
+    assert len({r[1] for r in rows}) == 1
+
+
+def test_pop_last_n_caps_at_available(store):
+    sid = "small:None"
+    store.append(sid, "user", "only")
+    flipped = store.pop_last_n(sid, 50)
+    assert flipped == 1
+    assert store.get_recent(sid, limit=10) == []
+
+
+def test_pop_last_n_zero_or_empty(store):
+    sid = "empty:None"
+    assert store.pop_last_n(sid, 5) == 0
+    store.append(sid, "user", "x")
+    assert store.pop_last_n(sid, 0) == 0
+    assert len(store.get_recent(sid, limit=10)) == 1
