@@ -41,6 +41,7 @@ class CompactorConfig:
     keep_verbatim_n: int = 20
     idle_interval_sec: float = 30.0
     min_messages_to_summarize: int = 40
+    delete_summarized: bool = False
 
 
 class Compactor:
@@ -76,6 +77,7 @@ class Compactor:
         # Bind asyncio primitives to the running loop (Python 3.10+ rejects
         # loop-less Queue()/Event() construction).
         self._queue = asyncio.Queue()
+        self._queued: set[str] = set()
         self._stopping = asyncio.Event()
         self._task = asyncio.create_task(self._run(), name="compactor-worker")
 
@@ -95,6 +97,11 @@ class Compactor:
         if not self.config.enabled or self._queue is None:
             return
         try:
+            if not hasattr(self, "_queued"):
+                self._queued = set()
+            if session_id in self._queued:
+                return
+            self._queued.add(session_id)
             self._queue.put_nowait(session_id)
         except asyncio.QueueFull:
             pass
@@ -120,6 +127,8 @@ class Compactor:
                 continue
             if sid == "__shutdown__":
                 break
+            if hasattr(self, "_queued"):
+                self._queued.discard(sid)
             try:
                 await self._compact_one(sid)
             except Exception:
@@ -138,13 +147,32 @@ class Compactor:
         if self.summarize_fn is None:
             log.debug("compactor: no summarize_fn wired; skipping session=%s", session_id)
             return
-        msgs = self.store.get_full_for_compaction(session_id)
-        if len(msgs) < self.config.min_messages_to_summarize:
+        prior, watermark, revision = self.store.get_compaction_state(session_id)
+        delta = self.store.get_compaction_delta(session_id, prior, watermark)
+        if len(delta) < self.config.min_messages_to_summarize:
             return
-        head = msgs[: -self.config.keep_verbatim_n]
+        head = delta[: -self.config.keep_verbatim_n]
         if not head:
             return
-        prior = self.store.get_summary(session_id)
+        head_ids = [int(m.id) for m in head if m.id is not None]
+        if len(head_ids) != len(head):
+            log.warning("compactor: cannot compact rows without ids session=%s", session_id)
+            return
+        new_watermark = head_ids[-1]
         new_summary = await self.summarize_fn(head, prior)
-        self.store.set_summary(session_id, new_summary)
+        if not new_summary or not new_summary.strip():
+            log.warning("compactor: empty summary; keeping prior summary session=%s", session_id)
+            return
+        ok = self.store.commit_compaction_summary(
+            session_id,
+            new_summary,
+            new_watermark,
+            revision,
+            head_ids,
+            delete_summarized=self.config.delete_summarized,
+        )
+        if not ok:
+            log.info("compactor: state changed during summarize; requeue session=%s", session_id)
+            self.note_append(session_id)
+            return
         log.info("compactor: refreshed summary for session=%s (%d msgs)", session_id, len(head))

@@ -54,7 +54,7 @@ Design + edge cases: `docs/design/listing-and-drop-api.md`.
 | Symbol | What |
 | --- | --- |
 | `ContextStore` | SQLite per-session message store (append / get_recent / summary / pop_last_n / reset). |
-| `Compactor` | Continuous background summarizer (stub — awaits LLM logic). |
+| `Compactor` | Continuous background summarizer with pluggable async `summarize_fn`. |
 | `MemoryBackend` | Abstract base for long-term memory adapters. |
 | `NoopMemoryBackend` | Default no-op adapter. Always safe. |
 | `HermesMemoryBackend` | Writes mirrored turns into `~/.hermes/state.db`. |
@@ -67,7 +67,7 @@ Design + edge cases: `docs/design/listing-and-drop-api.md`.
 | `ContextStore` | functional |
 | `NoopMemoryBackend` | functional |
 | `HermesMemoryBackend` | functional (write + FTS search) |
-| `Compactor` | **stub** — interface complete; LLM call pending compaction-research |
+| `Compactor` | functional lifecycle + watermark-safe pluggable summarization; backend LLM call supplied by caller |
 | `MemorySearch` | functional facade |
 
 ## Design
