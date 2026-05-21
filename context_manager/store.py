@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     ended_at      REAL,
     message_count INTEGER NOT NULL DEFAULT 0,
     summary       TEXT,
-    summary_updated_at REAL
+    summary_updated_at REAL,
+    summary_through_message_id INTEGER,
+    summary_revision INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_source ON sessions(source);
 CREATE INDEX IF NOT EXISTS idx_sessions_started ON sessions(started_at DESC);
@@ -145,7 +147,7 @@ class ContextStore:
         self._apply_migrations()
 
     def _apply_migrations(self) -> None:
-        """Idempotently add columns. v1→v2 adds token_estimate + sessions.model."""
+        """Idempotently add columns. v1→v2 adds listing/drop columns; v2→v3 adds compaction watermark."""
         with self._lock:
             msg_cols = {
                 row[1]
@@ -167,15 +169,19 @@ class ContextStore:
             }
             if "model" not in sess_cols:
                 self._conn.execute("ALTER TABLE sessions ADD COLUMN model TEXT")
+            if "summary_through_message_id" not in sess_cols:
+                self._conn.execute("ALTER TABLE sessions ADD COLUMN summary_through_message_id INTEGER")
+            if "summary_revision" not in sess_cols:
+                self._conn.execute("ALTER TABLE sessions ADD COLUMN summary_revision INTEGER NOT NULL DEFAULT 0")
             # Backfill token_estimate for existing rows that have content.
             self._backfill_token_estimates()
-            # Bump schema_version to 2.
+            # Bump schema_version to 3.
             cur_ver = self._conn.execute(
                 "SELECT MAX(version) FROM schema_version"
             ).fetchone()
-            if not cur_ver or (cur_ver[0] or 0) < 2:
+            if not cur_ver or (cur_ver[0] or 0) < 3:
                 self._conn.execute(
-                    "INSERT OR IGNORE INTO schema_version(version) VALUES (2)"
+                    "INSERT OR IGNORE INTO schema_version(version) VALUES (3)"
                 )
 
     def _backfill_token_estimates(self) -> None:
@@ -356,6 +362,7 @@ class ContextStore:
                     (now, batch_id, *ids),
                 )
                 flipped = len(ids)
+                self._invalidate_summary(session_id)
                 self._conn.execute(
                     """UPDATE sessions
                        SET message_count = MAX(0, message_count - ?)
@@ -398,10 +405,17 @@ class ContextStore:
                     (now, batch_id, session_id),
                 )
                 flipped = cur.rowcount or 0
+                # Reset invalidates summaries even when there are no live rows;
+                # otherwise stale summary text can survive an explicit reset.
+                self._conn.execute(
+                    "UPDATE sessions SET summary = NULL, summary_updated_at = NULL, "
+                    "summary_through_message_id = NULL, "
+                    "summary_revision = summary_revision + 1 WHERE id = ?",
+                    (session_id,),
+                )
                 if flipped:
                     self._conn.execute(
-                        "UPDATE sessions SET message_count = 0, "
-                        "summary = NULL, summary_updated_at = NULL WHERE id = ?",
+                        "UPDATE sessions SET message_count = 0 WHERE id = ?",
                         (session_id,),
                     )
                 if flipped or reason is not None:
@@ -513,16 +527,139 @@ class ContextStore:
             ).fetchone()
         return row[0] if row else None
 
-    def set_summary(self, session_id: str, summary: str) -> None:
+    def get_compaction_state(self, session_id: str) -> Tuple[Optional[str], Optional[int], int]:
+        """Return (summary, summary_through_message_id, summary_revision)."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT summary, summary_through_message_id, summary_revision "
+                "FROM sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+        if not row:
+            return None, None, 0
+        return row[0], row[1], int(row[2] or 0)
+
+    def set_summary(self, session_id: str, summary: str, through_message_id: Optional[int] = None) -> None:
         with self._lock:
             self._conn.execute(
-                "UPDATE sessions SET summary = ?, summary_updated_at = ? WHERE id = ?",
-                (summary, time.time(), session_id),
+                """INSERT OR IGNORE INTO sessions
+                   (id, source, started_at) VALUES (?, ?, ?)""",
+                (session_id, "dispatcher", time.time()),
+            )
+            self._conn.execute(
+                """UPDATE sessions
+                   SET summary = ?, summary_updated_at = ?,
+                       summary_through_message_id = ?,
+                       summary_revision = summary_revision + 1
+                   WHERE id = ?""",
+                (summary, time.time(), through_message_id, session_id),
             )
 
+    def _invalidate_summary(self, session_id: str) -> None:
+        self._conn.execute(
+            """UPDATE sessions
+               SET summary = NULL, summary_updated_at = NULL,
+                   summary_through_message_id = NULL,
+                   summary_revision = summary_revision + 1
+               WHERE id = ?""",
+            (session_id,),
+        )
+
     def get_full_for_compaction(self, session_id: str) -> List[Message]:
-        """Snapshot for the Compactor to score/summarize. Same as get_all today."""
+        """Snapshot of live rows for compactor compatibility."""
         return self.get_all(session_id)
+
+    def get_compaction_delta(self, session_id: str, prior_summary: Optional[str], prior_watermark: Optional[int]) -> List[Message]:
+        """Return live rows not covered by the prior summary watermark."""
+        with self._lock:
+            if prior_summary is None or prior_watermark is None:
+                rows = self._conn.execute(
+                    """SELECT id, role, content, tool_name, tool_calls, tool_call_id,
+                              timestamp, metadata
+                       FROM messages WHERE session_id = ? AND dropped_at IS NULL
+                       ORDER BY id ASC""",
+                    (session_id,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    """SELECT id, role, content, tool_name, tool_calls, tool_call_id,
+                              timestamp, metadata
+                       FROM messages WHERE session_id = ? AND dropped_at IS NULL AND id > ?
+                       ORDER BY id ASC""",
+                    (session_id, prior_watermark),
+                ).fetchall()
+        return [
+            Message(
+                id=r[0], role=r[1], content=r[2], tool_name=r[3],
+                tool_calls=r[4], tool_call_id=r[5], timestamp=r[6],
+                metadata=json.loads(r[7]) if r[7] else None,
+            )
+            for r in rows
+        ]
+
+    def commit_compaction_summary(
+        self,
+        session_id: str,
+        summary: str,
+        through_message_id: int,
+        expected_revision: int,
+        head_ids: List[int],
+        *,
+        delete_summarized: bool = False,
+    ) -> bool:
+        """Atomically commit a guarded compaction summary.
+
+        Returns False if the session changed or any summarized row is no
+        longer live, so the caller should retry later.
+        """
+        if not head_ids:
+            return False
+        placeholders = ",".join("?" for _ in head_ids)
+        with self._lock:
+            self._conn.execute("BEGIN")
+            try:
+                row = self._conn.execute(
+                    "SELECT summary_revision FROM sessions WHERE id = ?",
+                    (session_id,),
+                ).fetchone()
+                current_rev = int(row[0] if row else 0)
+                if current_rev != expected_revision:
+                    self._conn.execute("ROLLBACK")
+                    return False
+                live_count = self._conn.execute(
+                    f"""SELECT COUNT(*) FROM messages
+                        WHERE session_id = ? AND dropped_at IS NULL
+                          AND id IN ({placeholders})""",
+                    (session_id, *head_ids),
+                ).fetchone()[0]
+                if int(live_count or 0) != len(head_ids):
+                    self._conn.execute("ROLLBACK")
+                    return False
+                self._conn.execute(
+                    """UPDATE sessions
+                       SET summary = ?, summary_updated_at = ?,
+                           summary_through_message_id = ?,
+                           summary_revision = summary_revision + 1
+                       WHERE id = ?""",
+                    (summary, time.time(), through_message_id, session_id),
+                )
+                if delete_summarized:
+                    self._conn.execute(
+                        "DELETE FROM messages WHERE session_id = ? AND id <= ?",
+                        (session_id, through_message_id),
+                    )
+                    self._conn.execute(
+                        """UPDATE sessions SET message_count = (
+                               SELECT COUNT(*) FROM messages
+                               WHERE session_id = ? AND dropped_at IS NULL
+                           ) WHERE id = ?""",
+                        (session_id, session_id),
+                    )
+                self._conn.execute("COMMIT")
+                return True
+            except Exception:
+                self._conn.execute("ROLLBACK")
+                raise
 
     def assemble_context(
         self,
@@ -535,11 +672,18 @@ class ContextStore:
         Strategy: optional summary prepended as a system note, then last N turns.
         """
         out: List[dict] = []
+        watermark: Optional[int] = None
         if include_summary:
-            s = self.get_summary(session_id)
-            if s:
-                out.append({"role": "system", "content": f"[conversation summary]\n{s}"})
-        out.extend(m.to_openai() for m in self.get_recent(session_id, recent_n))
+            summary, watermark, _revision = self.get_compaction_state(session_id)
+            if summary:
+                out.append({"role": "system", "content": f"[conversation summary]\n{summary}"})
+            else:
+                watermark = None
+        if include_summary and watermark is not None:
+            rows = self.get_compaction_delta(session_id, "summary-present", watermark)
+        else:
+            rows = self.get_recent(session_id, recent_n)
+        out.extend(m.to_openai() for m in rows)
         return out
 
     def close(self) -> None:
@@ -678,7 +822,9 @@ class ContextStore:
                     self._conn.execute(
                         "UPDATE sessions "
                         "SET message_count = MAX(0, message_count - ?), "
-                        "summary = NULL, summary_updated_at = NULL "
+                        "summary = NULL, summary_updated_at = NULL, "
+                        "summary_through_message_id = NULL, "
+                        "summary_revision = summary_revision + 1 "
                         "WHERE id = ?",
                         (int(live_n), session_id),
                     )

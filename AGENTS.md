@@ -11,7 +11,8 @@ context_manager/
                   # + iter_messages / token_usage / drop_messages /
                   #   drop_by_tool / drop_range
   windows.py      # Token-window registry + get_window(model)
-  compactor.py    # Compactor — continuous background summarizer (STUB)
+  compactor.py    # Compactor — watermark-safe background summarizer with
+                  # caller-supplied async summarize_fn
   memory.py       # MemoryBackend ABC, NoopMemoryBackend, HermesMemoryBackend,
                   # MemorySearch facade
 tests/
@@ -28,7 +29,7 @@ AGENTS.md
 | --- | --- | --- |
 | `store.py` | SQLite append-only message store, session-keyed; per-session listing + hard-drop API | functional |
 | `windows.py` | Model→context-window registry + `get_window(model)` helper | functional |
-| `compactor.py` | Continuous summarizer worker | **stub** (interface only) |
+| `compactor.py` | Watermark-safe continuous summarizer worker | functional (caller supplies async `summarize_fn`) |
 | `memory.py` | Long-term memory adapters | Noop+Hermes functional |
 
 ## Dev setup
@@ -50,11 +51,13 @@ Targeting Python 3.9+ (macOS system python). No third-party deps in core.
 - `session_id` is opaque text. agent-dispatcher composes it as
   `f"{chat_id}:{thread_id or 'None'}"`.
 
-## What's stubbed (don't ship as production)
+## Compactor contract
 
-- `Compactor._compact_one` — needs LLM call. Awaits compaction-research cron
-  `0b0bd07b6e5b` / `qike-ms/my-ai-skills#5`. Disabled by default
-  (`CompactorConfig.enabled = False`).
+- `Compactor` owns lifecycle/queueing/watermark-safe summary writeback only.
+- Callers supply backend-specific async `summarize_fn(messages, prior_summary)`.
+- Store tracks `summary_through_message_id` so `assemble_context()` emits summary + every live row after the watermark; later appends cannot fall through the cracks.
+- User deletions/rewinds/reset invalidate summary + watermark. Internal compactor deletion (`delete_summarized=True`) preserves summary.
+- Keep last `CompactorConfig.keep_verbatim_n` live messages out of each compaction pass.
 
 ## Testing rules
 
