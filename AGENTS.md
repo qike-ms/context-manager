@@ -8,11 +8,15 @@ Dev guide for AI coding assistants and humans.
 context_manager/
   __init__.py     # public API surface
   store.py        # ContextStore — SQLite per-session message log
+                  # + iter_messages / token_usage / drop_messages /
+                  #   drop_by_tool / drop_range
+  windows.py      # Token-window registry + get_window(model)
   compactor.py    # Compactor — continuous background summarizer (STUB)
   memory.py       # MemoryBackend ABC, NoopMemoryBackend, HermesMemoryBackend,
                   # MemorySearch facade
 tests/
   test_store.py   # pytest — append/retrieve/summary/tool-calls/Hermes smoke
+  test_listing_and_drops.py  # design §8 coverage
 pyproject.toml
 README.md
 AGENTS.md
@@ -22,7 +26,8 @@ AGENTS.md
 
 | File | Purpose | Status |
 | --- | --- | --- |
-| `store.py` | SQLite append-only message store, session-keyed | functional |
+| `store.py` | SQLite append-only message store, session-keyed; per-session listing + hard-drop API | functional |
+| `windows.py` | Model→context-window registry + `get_window(model)` helper | functional |
 | `compactor.py` | Continuous summarizer worker | **stub** (interface only) |
 | `memory.py` | Long-term memory adapters | Noop+Hermes functional |
 
