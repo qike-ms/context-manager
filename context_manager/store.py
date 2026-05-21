@@ -611,7 +611,9 @@ class ContextStore:
                 deleted = int(cur.rowcount or 0)
                 if live_n:
                     self._conn.execute(
-                        "UPDATE sessions SET message_count = MAX(0, message_count - ?) "
+                        "UPDATE sessions "
+                        "SET message_count = MAX(0, message_count - ?), "
+                        "summary = NULL, summary_updated_at = NULL "
                         "WHERE id = ?",
                         (int(live_n), session_id),
                     )

@@ -193,6 +193,24 @@ def test_drop_messages_decrements_message_count(tmp_path):
     assert mc == len(ids) - 1
 
 
+def test_hard_drop_clears_cached_summary(tmp_path):
+    s = _store(tmp_path)
+    ids = _seed_mixed(s)
+    s.set_summary(SID, "summary mentioning hello")
+
+    assert s.get_summary(SID) == "summary mentioning hello"
+    assert s.drop_messages(SID, [ids[1]]) == 1
+
+    row = s._conn.execute(
+        "SELECT summary, summary_updated_at FROM sessions WHERE id=?", (SID,)
+    ).fetchone()
+    assert row == (None, None)
+    assert all(
+        "summary mentioning hello" not in (m.get("content") or "")
+        for m in s.assemble_context(SID)
+    )
+
+
 # -------- drop_by_tool --------
 
 
