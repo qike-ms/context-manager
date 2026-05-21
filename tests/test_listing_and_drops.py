@@ -211,6 +211,24 @@ def test_hard_drop_clears_cached_summary(tmp_path):
     )
 
 
+def test_hard_drop_of_soft_deleted_row_clears_cached_summary(tmp_path):
+    s = _store(tmp_path)
+    ids = _seed_mixed(s)
+    s.set_summary(SID, "summary mentioning thanks")
+    s.pop_last_n(SID, 1)
+
+    assert s.drop_messages(SID, [ids[-1]]) == 1
+
+    row = s._conn.execute(
+        "SELECT summary, summary_updated_at FROM sessions WHERE id=?", (SID,)
+    ).fetchone()
+    assert row == (None, None)
+    assert all(
+        "summary mentioning thanks" not in (m.get("content") or "")
+        for m in s.assemble_context(SID)
+    )
+
+
 # -------- drop_by_tool --------
 
 
@@ -339,6 +357,10 @@ def test_windows_prefix_tiebreak():
     size, known = get_window("sonnet-4.5-20260301")
     assert known is True
     assert size == 1_000_000  # sonnet-4.5, not sonnet-4
+    assert get_window("claude-sonnet-4-5-20260301") == (1_000_000, True)
+    assert get_window("claude_sonnet_4_5_20260301") == (1_000_000, True)
+    assert get_window("claude-sonnet-4-7") == (128_000, False)
     assert get_window("opus-4.7") == (200_000, True)
+    assert get_window("claude-opus-4-7-20260514") == (200_000, True)
     assert get_window(None) == (128_000, False)
     assert get_window("totally-unknown-xyz") == (128_000, False)

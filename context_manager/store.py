@@ -609,7 +609,7 @@ class ContextStore:
                     (session_id, *params),
                 )
                 deleted = int(cur.rowcount or 0)
-                if live_n:
+                if deleted:
                     self._conn.execute(
                         "UPDATE sessions "
                         "SET message_count = MAX(0, message_count - ?), "
