@@ -78,6 +78,7 @@ class Message:
     timestamp: float = field(default_factory=time.time)
     metadata: Optional[dict] = None
     id: Optional[int] = None
+    token_estimate: Optional[int] = None
 
     def to_openai(self) -> dict:
         """Render this message in OpenAI chat-completions schema."""
@@ -664,7 +665,7 @@ class ContextStore:
         with self._lock:
             rows = self._conn.execute(
                 """SELECT id, role, content, tool_name, tool_calls, tool_call_id,
-                          timestamp, metadata
+                          timestamp, metadata, token_estimate
                    FROM messages WHERE session_id = ? AND dropped_at IS NULL
                    ORDER BY id DESC LIMIT ?""",
                 (session_id, limit),
@@ -679,6 +680,7 @@ class ContextStore:
                 tool_call_id=r[5],
                 timestamp=r[6],
                 metadata=json.loads(r[7]) if r[7] else None,
+                token_estimate=r[8],
             )
             for r in rows
         ]
@@ -851,7 +853,7 @@ class ContextStore:
             if prior_summary is None or prior_watermark is None:
                 rows = self._conn.execute(
                     """SELECT id, role, content, tool_name, tool_calls, tool_call_id,
-                              timestamp, metadata
+                              timestamp, metadata, token_estimate
                        FROM messages WHERE session_id = ? AND dropped_at IS NULL
                        ORDER BY id ASC""",
                     (session_id,),
@@ -859,7 +861,7 @@ class ContextStore:
             else:
                 rows = self._conn.execute(
                     """SELECT id, role, content, tool_name, tool_calls, tool_call_id,
-                              timestamp, metadata
+                              timestamp, metadata, token_estimate
                        FROM messages WHERE session_id = ? AND dropped_at IS NULL AND id > ?
                        ORDER BY id ASC""",
                     (session_id, prior_watermark),
@@ -869,6 +871,7 @@ class ContextStore:
                 id=r[0], role=r[1], content=r[2], tool_name=r[3],
                 tool_calls=r[4], tool_call_id=r[5], timestamp=r[6],
                 metadata=json.loads(r[7]) if r[7] else None,
+                token_estimate=r[8],
             )
             for r in rows
         ]
