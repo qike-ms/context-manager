@@ -1,11 +1,12 @@
 # context-manager
 
-Pluggable context + memory layer for agent dispatchers.
+Pluggable context + memory substrate for agent dispatchers.
 
-Designed to be the persistence layer for
-[`qike-ms/agent-dispatcher`](https://github.com/qike-ms/agent-dispatcher) but
-reusable by any agent that wants a dispatcher-owned, backend-agnostic
-conversation store with an optional pluggable long-term memory.
+`context-manager` gives dispatchers durable ownership of conversation state
+outside any single model backend. It is designed for routers that may switch
+or rotate backend sessions while preserving one backend-agnostic context log,
+token budget view, selective deletion API, and optional compaction/memory
+adapters.
 
 ## Install
 
@@ -72,8 +73,9 @@ Design + edge cases: `docs/design/listing-and-drop-api.md`.
 
 ## Design
 
-See [`agent-dispatcher` architecture
-doc](https://github.com/qike-ms/agent-dispatcher) for the full design rationale.
+See `docs/design/` for implementation-facing design notes. The current roadmap
+for strengthening context and memory management is
+`docs/design/context-memory-roadmap.md`.
 
 Key commitments:
 
