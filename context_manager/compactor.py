@@ -146,22 +146,81 @@ class Compactor:
         """
         if self.summarize_fn is None:
             log.debug("compactor: no summarize_fn wired; skipping session=%s", session_id)
+            self.store.record_event(
+                session_id,
+                "compaction_skipped",
+                {"reason": "summarize_fn_missing"},
+            )
             return
         prior, watermark, revision = self.store.get_compaction_state(session_id)
         delta = self.store.get_compaction_delta(session_id, prior, watermark)
         if len(delta) < self.config.min_messages_to_summarize:
+            self.store.record_event(
+                session_id,
+                "compaction_skipped",
+                {
+                    "reason": "below_threshold",
+                    "delta_count": len(delta),
+                    "min_messages_to_summarize": self.config.min_messages_to_summarize,
+                    "prior_watermark": watermark,
+                    "revision": revision,
+                },
+            )
             return
         head = delta[: -self.config.keep_verbatim_n]
         if not head:
+            self.store.record_event(
+                session_id,
+                "compaction_skipped",
+                {
+                    "reason": "no_head",
+                    "delta_count": len(delta),
+                    "keep_verbatim_n": self.config.keep_verbatim_n,
+                    "prior_watermark": watermark,
+                    "revision": revision,
+                },
+            )
             return
         head_ids = [int(m.id) for m in head if m.id is not None]
         if len(head_ids) != len(head):
             log.warning("compactor: cannot compact rows without ids session=%s", session_id)
+            self.store.record_event(
+                session_id,
+                "compaction_skipped",
+                {
+                    "reason": "missing_ids",
+                    "head_count": len(head),
+                    "ids_present": len(head_ids),
+                    "prior_watermark": watermark,
+                    "revision": revision,
+                },
+            )
             return
         new_watermark = head_ids[-1]
+        event_metadata = {
+            "prior_watermark": watermark,
+            "expected_revision": revision,
+            "delta_count": len(delta),
+            "summarized_count": len(head),
+            "kept_verbatim_count": len(delta) - len(head),
+            "target_watermark": new_watermark,
+            "delete_summarized": self.config.delete_summarized,
+        }
+        self.store.record_event(
+            session_id,
+            "compaction_started",
+            event_metadata,
+        )
         new_summary = await self.summarize_fn(head, prior)
         if not new_summary or not new_summary.strip():
             log.warning("compactor: empty summary; keeping prior summary session=%s", session_id)
+            skipped_metadata = dict(event_metadata)
+            skipped_metadata["reason"] = "empty_summary"
+            self.store.record_event(
+                session_id,
+                "compaction_skipped",
+                skipped_metadata,
+            )
             return
         ok = self.store.commit_compaction_summary(
             session_id,
@@ -170,9 +229,21 @@ class Compactor:
             revision,
             head_ids,
             delete_summarized=self.config.delete_summarized,
+            event_metadata={
+                **event_metadata,
+                "watermark": new_watermark,
+                "deleted_count": len(head_ids) if self.config.delete_summarized else 0,
+            },
         )
         if not ok:
             log.info("compactor: state changed during summarize; requeue session=%s", session_id)
+            aborted_metadata = dict(event_metadata)
+            aborted_metadata["reason"] = "revision_or_guard_changed"
+            self.store.record_event(
+                session_id,
+                "compaction_aborted_revision_changed",
+                aborted_metadata,
+            )
             self.note_append(session_id)
             return
         log.info("compactor: refreshed summary for session=%s (%d msgs)", session_id, len(head))

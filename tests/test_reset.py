@@ -12,6 +12,17 @@ def test_reset_empty_session_returns_zero(tmp_path):
     assert s.reset("sid") == 0
 
 
+def test_reset_empty_session_records_reset_event(tmp_path):
+    s = _store(tmp_path)
+
+    assert s.reset("sid") == 0
+
+    events = s.iter_events("sid")
+    assert [e.event_type for e in events] == ["reset"]
+    assert events[0].metadata["count"] == 0
+    assert events[0].metadata["reason"] is None
+
+
 def test_reset_nonexistent_session_auto_creates(tmp_path):
     s = _store(tmp_path)
     assert s.reset("new") == 0

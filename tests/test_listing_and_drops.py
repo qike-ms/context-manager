@@ -196,15 +196,26 @@ def test_drop_messages_decrements_message_count(tmp_path):
 def test_hard_drop_clears_cached_summary(tmp_path):
     s = _store(tmp_path)
     ids = _seed_mixed(s)
-    s.set_summary(SID, "summary mentioning hello")
+    s.set_summary(SID, "summary mentioning hello", through_message_id=ids[0])
+    before_revision = s._conn.execute(
+        "SELECT summary_revision FROM sessions WHERE id=?", (SID,)
+    ).fetchone()[0]
 
     assert s.get_summary(SID) == "summary mentioning hello"
     assert s.drop_messages(SID, [ids[1]]) == 1
 
     row = s._conn.execute(
-        "SELECT summary, summary_updated_at FROM sessions WHERE id=?", (SID,)
+        "SELECT summary, summary_envelope, summary_updated_at, "
+        "summary_through_message_id, summary_revision "
+        "FROM sessions WHERE id=?",
+        (SID,),
     ).fetchone()
-    assert row == (None, None)
+    assert row[:4] == (None, None, None, None)
+    assert row[4] == before_revision + 1
+    events = s.iter_events(SID)
+    assert events[-2].event_type == "summary_invalidated"
+    assert events[-2].metadata["prior_watermark"] == ids[0]
+    assert events[-2].metadata["prior_revision"] == before_revision
     assert all(
         "summary mentioning hello" not in (m.get("content") or "")
         for m in s.assemble_context(SID)
@@ -338,8 +349,15 @@ def test_schema_migration_idempotent(tmp_path):
     conn.close()
     # Open → migrates
     s = ContextStore(db)
+    tables = {
+        r[0]
+        for r in s._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
     cols_m = {r[1] for r in s._conn.execute("PRAGMA table_info(messages)").fetchall()}
     cols_s = {r[1] for r in s._conn.execute("PRAGMA table_info(sessions)").fetchall()}
+    assert "context_events" in tables
     assert "token_estimate" in cols_m
     assert {"dropped_at", "dropped_by", "drop_batch_id"} <= cols_m
     assert "model" in cols_s

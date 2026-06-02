@@ -4,6 +4,7 @@ import tempfile
 import pytest
 
 from context_manager import (
+    ContextEvent,
     ContextStore,
     HermesMemoryBackend,
     NoopMemoryBackend,
@@ -49,6 +50,62 @@ def test_summary_roundtrip(store):
     assert envelope.through_message_id is None
     assert envelope.safety_policy == "reference_material_not_active_instructions"
     assert envelope.source == "context-manager"
+
+
+def test_event_roundtrip_and_session_isolation(store):
+    store.record_event("A", "custom", {"n": 1})
+    store.record_event("B", "custom", {"n": 2})
+
+    events = store.iter_events("A")
+    assert len(events) == 1
+    assert isinstance(events[0], ContextEvent)
+    assert events[0].session_id == "A"
+    assert events[0].event_type == "custom"
+    assert events[0].metadata == {"n": 1}
+    assert [e.metadata["n"] for e in store.iter_events("B")] == [2]
+
+
+def test_rewind_records_invalidation_and_rewind_events(store):
+    sid = "rewind-events"
+    ids = [store.append(sid, "user", f"m{i}") for i in range(3)]
+    store.set_summary(sid, "summary", through_message_id=ids[0])
+
+    assert store.pop_last_n(sid, 2) == 2
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events[-2:]] == ["summary_invalidated", "rewind"]
+    assert events[-1].metadata["count"] == 2
+    assert events[-1].metadata["message_ids"] == ids[1:]
+
+
+def test_reset_records_invalidation_and_reset_events(store):
+    sid = "reset-events"
+    ids = [store.append(sid, "user", f"m{i}") for i in range(2)]
+    store.set_summary(sid, "summary", through_message_id=ids[0])
+
+    assert store.reset(sid, reason="user_command") == 2
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events[-2:]] == ["summary_invalidated", "reset"]
+    assert events[-1].metadata["count"] == 2
+    assert events[-1].metadata["reason"] == "user_command"
+
+
+def test_drop_messages_records_invalidation_and_drop_events(store):
+    sid = "drop-events"
+    ids = [store.append(sid, "user", f"m{i}") for i in range(3)]
+    store.set_summary(sid, "summary", through_message_id=ids[0])
+
+    assert store.drop_messages(sid, [ids[1]]) == 1
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events[-2:]] == [
+        "summary_invalidated",
+        "messages_dropped",
+    ]
+    assert events[-1].metadata["count"] == 1
+    assert events[-1].metadata["live_count"] == 1
+    assert events[-1].metadata["message_ids"] == [ids[1]]
 
 
 def test_legacy_raw_summary_has_no_envelope_but_returns_text(store):
