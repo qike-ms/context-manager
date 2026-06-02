@@ -10,7 +10,13 @@ Public API:
 """
 
 from .store import ContextEvent, ContextStore, Message, MessageView, SummaryEnvelope, TokenUsage
-from .compactor import Compactor
+from .compactor import (
+    Compactor,
+    CompactorConfig,
+    PrunePolicy,
+    prune_tool_outputs,
+    render_for_summary,
+)
 from .windows import get_window
 from .memory import (
     MemoryBackend,
@@ -35,6 +41,10 @@ __all__ = [
     "SummaryEnvelope",
     "TokenUsage",
     "Compactor",
+    "CompactorConfig",
+    "PrunePolicy",
+    "prune_tool_outputs",
+    "render_for_summary",
     "get_window",
     "MemorySearch",
     "MemoryBackend",
