@@ -9,7 +9,7 @@ Public API:
     HermesMemoryBackend — adapter writing into Hermes's SQLite session store.
 """
 
-from .store import ContextStore, Message, MessageView, TokenUsage
+from .store import ContextStore, Message, MessageView, SummaryEnvelope, TokenUsage
 from .compactor import Compactor
 from .windows import get_window
 from .memory import (
@@ -31,6 +31,7 @@ __all__ = [
     "ContextStore",
     "Message",
     "MessageView",
+    "SummaryEnvelope",
     "TokenUsage",
     "Compactor",
     "get_window",
