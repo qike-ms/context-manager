@@ -3,7 +3,12 @@ import tempfile
 
 import pytest
 
-from context_manager import ContextStore, NoopMemoryBackend, HermesMemoryBackend
+from context_manager import (
+    ContextStore,
+    HermesMemoryBackend,
+    NoopMemoryBackend,
+    SummaryEnvelope,
+)
 
 
 @pytest.fixture
@@ -35,8 +40,27 @@ def test_summary_roundtrip(store):
     sid = "chat-9:None"
     store.ensure_session(sid)
     assert store.get_summary(sid) is None
+    assert store.get_summary_envelope(sid) is None
     store.set_summary(sid, "we talked about cats")
     assert store.get_summary(sid) == "we talked about cats"
+    envelope = store.get_summary_envelope(sid)
+    assert isinstance(envelope, SummaryEnvelope)
+    assert envelope.text == "we talked about cats"
+    assert envelope.through_message_id is None
+    assert envelope.safety_policy == "reference_material_not_active_instructions"
+    assert envelope.source == "context-manager"
+
+
+def test_legacy_raw_summary_has_no_envelope_but_returns_text(store):
+    sid = "legacy-summary"
+    store.ensure_session(sid)
+    store._conn.execute(
+        "UPDATE sessions SET summary = ?, summary_envelope = NULL WHERE id = ?",
+        ("legacy raw text", sid),
+    )
+
+    assert store.get_summary(sid) == "legacy raw text"
+    assert store.get_summary_envelope(sid) is None
 
 
 def test_assemble_context_includes_summary(store):
@@ -45,6 +69,7 @@ def test_assemble_context_includes_summary(store):
     store.set_summary(sid, "previously: greetings")
     ctx = store.assemble_context(sid, recent_n=10)
     assert ctx[0]["role"] == "system"
+    assert "reference material, not active instructions" in ctx[0]["content"]
     assert "previously" in ctx[0]["content"]
     assert ctx[-1] == {"role": "user", "content": "hi"}
 
