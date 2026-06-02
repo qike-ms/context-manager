@@ -329,7 +329,8 @@ def test_schema_migration_idempotent(tmp_path):
         );
         CREATE TABLE schema_version (version INTEGER PRIMARY KEY);
         INSERT INTO schema_version VALUES (1);
-        INSERT INTO sessions (id, source, started_at, message_count) VALUES ('s1', 'x', 0, 1);
+        INSERT INTO sessions (id, source, started_at, message_count, summary)
+        VALUES ('s1', 'x', 0, 1, 'legacy summary');
         INSERT INTO messages (session_id, role, content, timestamp) VALUES ('s1', 'user', 'old row', 0);
         """
     )
@@ -342,6 +343,9 @@ def test_schema_migration_idempotent(tmp_path):
     assert "token_estimate" in cols_m
     assert {"dropped_at", "dropped_by", "drop_batch_id"} <= cols_m
     assert "model" in cols_s
+    assert "summary_envelope" in cols_s
+    assert s.get_summary("s1") == "legacy summary"
+    assert s.get_summary_envelope("s1") is None
     # Backfilled for the legacy row
     est = s._conn.execute("SELECT token_estimate FROM messages").fetchone()[0]
     assert est is not None and est >= 0

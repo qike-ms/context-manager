@@ -68,6 +68,12 @@ async def test_compacts_head_and_stores_watermark(store):
     assert summary == "summary v1"
     assert watermark == ids[2]
     assert revision == 1
+    envelope = store.get_summary_envelope(sid)
+    assert envelope is not None
+    assert envelope.text == "summary v1"
+    assert envelope.through_message_id == ids[2]
+    assert envelope.safety_policy == "reference_material_not_active_instructions"
+    assert envelope.source == "compactor"
 
 
 @pytest.mark.asyncio
