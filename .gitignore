@@ -12,3 +12,6 @@ dist/
 *.db-shm
 *.db-wal
 .DS_Store
+
+# swe-supervisor runtime
+.swe-supervisor/
