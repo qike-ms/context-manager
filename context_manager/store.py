@@ -53,6 +53,16 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, id);
 
+CREATE TABLE IF NOT EXISTS context_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id   TEXT NOT NULL REFERENCES sessions(id),
+    event_type   TEXT NOT NULL,
+    timestamp    REAL NOT NULL,
+    metadata     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_context_events_session
+    ON context_events(session_id, id);
+
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
 INSERT OR IGNORE INTO schema_version(version) VALUES (1);
 """
@@ -110,6 +120,17 @@ class TokenUsage:
     window_pct: Optional[float]
     calibrated: bool
     missing_estimates: int
+
+
+@dataclass
+class ContextEvent:
+    """Append-only audit event for one context session."""
+
+    id: int
+    session_id: str
+    event_type: str
+    timestamp: float
+    metadata: dict = field(default_factory=dict)
 
 
 SUMMARY_ENVELOPE_VERSION = 1
@@ -222,15 +243,28 @@ class ContextStore:
                 self._conn.execute("ALTER TABLE sessions ADD COLUMN summary_revision INTEGER NOT NULL DEFAULT 0")
             if "summary_envelope" not in sess_cols:
                 self._conn.execute("ALTER TABLE sessions ADD COLUMN summary_envelope TEXT")
+            self._conn.execute(
+                """CREATE TABLE IF NOT EXISTS context_events (
+                       id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                       session_id   TEXT NOT NULL REFERENCES sessions(id),
+                       event_type   TEXT NOT NULL,
+                       timestamp    REAL NOT NULL,
+                       metadata     TEXT
+                   )"""
+            )
+            self._conn.execute(
+                """CREATE INDEX IF NOT EXISTS idx_context_events_session
+                   ON context_events(session_id, id)"""
+            )
             # Backfill token_estimate for existing rows that have content.
             self._backfill_token_estimates()
-            # Bump schema_version to 4.
+            # Bump schema_version to 5.
             cur_ver = self._conn.execute(
                 "SELECT MAX(version) FROM schema_version"
             ).fetchone()
-            if not cur_ver or (cur_ver[0] or 0) < 4:
+            if not cur_ver or (cur_ver[0] or 0) < 5:
                 self._conn.execute(
-                    "INSERT OR IGNORE INTO schema_version(version) VALUES (4)"
+                    "INSERT OR IGNORE INTO schema_version(version) VALUES (5)"
                 )
 
     def _backfill_token_estimates(self) -> None:
@@ -258,6 +292,85 @@ class ContextStore:
                 "UPDATE messages SET token_estimate = ? WHERE id = ?",
                 (int(est), rid),
             )
+
+    # ---------- events ----------
+    def _record_event_locked(
+        self,
+        session_id: str,
+        event_type: str,
+        metadata: Optional[dict] = None,
+        *,
+        timestamp: Optional[float] = None,
+    ) -> int:
+        now = time.time() if timestamp is None else timestamp
+        self._conn.execute(
+            """INSERT OR IGNORE INTO sessions
+               (id, source, started_at) VALUES (?, ?, ?)""",
+            (session_id, "dispatcher", now),
+        )
+        cur = self._conn.execute(
+            """INSERT INTO context_events
+               (session_id, event_type, timestamp, metadata)
+               VALUES (?, ?, ?, ?)""",
+            (
+                session_id,
+                event_type,
+                now,
+                json.dumps(metadata or {}),
+            ),
+        )
+        return int(cur.lastrowid or 0)
+
+    def record_event(
+        self,
+        session_id: str,
+        event_type: str,
+        metadata: Optional[dict] = None,
+    ) -> int:
+        """Append an audit event for one session and return its row id."""
+        with self._lock:
+            return self._record_event_locked(session_id, event_type, metadata)
+
+    def iter_events(
+        self,
+        session_id: str,
+        event_type: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> List[ContextEvent]:
+        """Return audit events for exactly one session, oldest-first."""
+        where = "session_id = ?"
+        params: List[Any] = [session_id]
+        if event_type is not None:
+            where += " AND event_type = ?"
+            params.append(event_type)
+        params.extend([int(limit), int(offset)])
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, session_id, event_type, timestamp, metadata "
+                f"FROM context_events WHERE {where} ORDER BY id ASC LIMIT ? OFFSET ?",
+                tuple(params),
+            ).fetchall()
+        out: List[ContextEvent] = []
+        for rid, sid, etype, ts, raw_meta in rows:
+            metadata: dict = {}
+            if raw_meta:
+                try:
+                    parsed = json.loads(raw_meta)
+                    if isinstance(parsed, dict):
+                        metadata = parsed
+                except Exception:
+                    metadata = {}
+            out.append(
+                ContextEvent(
+                    id=int(rid),
+                    session_id=sid,
+                    event_type=etype,
+                    timestamp=float(ts),
+                    metadata=metadata,
+                )
+            )
+        return out
 
     # ---------- sessions ----------
     def ensure_session(
@@ -402,7 +515,7 @@ class ContextStore:
                 if not rows:
                     self._conn.execute("COMMIT")
                     return 0
-                ids = [r[0] for r in rows]
+                ids = [int(r[0]) for r in rows]
                 placeholders = ",".join("?" for _ in ids)
                 self._conn.execute(
                     f"""UPDATE messages
@@ -411,12 +524,31 @@ class ContextStore:
                     (now, batch_id, *ids),
                 )
                 flipped = len(ids)
-                self._invalidate_summary(session_id)
+                event_ids = sorted(ids)
+                self._invalidate_summary(
+                    session_id,
+                    metadata={
+                        "reason": "rewind",
+                        "count": flipped,
+                        "message_ids": event_ids,
+                        "batch_id": batch_id,
+                    },
+                )
                 self._conn.execute(
                     """UPDATE sessions
                        SET message_count = MAX(0, message_count - ?)
                        WHERE id = ?""",
                     (flipped, session_id),
+                )
+                self._record_event_locked(
+                    session_id,
+                    "rewind",
+                    {
+                        "count": flipped,
+                        "message_ids": event_ids,
+                        "batch_id": batch_id,
+                    },
+                    timestamp=now,
                 )
                 self._conn.execute("COMMIT")
                 return flipped
@@ -448,6 +580,12 @@ class ContextStore:
                     "VALUES (?, ?, ?)",
                     (session_id, "dispatcher", now),
                 )
+                summary_row = self._conn.execute(
+                    "SELECT summary, summary_through_message_id, summary_revision "
+                    "FROM sessions WHERE id = ?",
+                    (session_id,),
+                ).fetchone()
+                had_summary = bool(summary_row and summary_row[0])
                 cur = self._conn.execute(
                     "UPDATE messages SET dropped_at=?, dropped_by='reset', "
                     "drop_batch_id=? WHERE session_id=? AND dropped_at IS NULL",
@@ -467,6 +605,31 @@ class ContextStore:
                         "UPDATE sessions SET message_count = 0 WHERE id = ?",
                         (session_id,),
                     )
+                if flipped or had_summary:
+                    summary_metadata = {
+                        "reason": "reset",
+                        "count": flipped,
+                        "batch_id": batch_id,
+                    }
+                    if summary_row:
+                        summary_metadata["prior_watermark"] = summary_row[1]
+                        summary_metadata["prior_revision"] = int(summary_row[2] or 0)
+                    self._record_event_locked(
+                        session_id,
+                        "summary_invalidated",
+                        summary_metadata,
+                        timestamp=now,
+                    )
+                self._record_event_locked(
+                    session_id,
+                    "reset",
+                    {
+                        "count": flipped,
+                        "batch_id": batch_id,
+                        "reason": reason,
+                    },
+                    timestamp=now,
+                )
                 if flipped or reason is not None:
                     row = self._conn.execute(
                         "SELECT metadata FROM sessions WHERE id = ?",
@@ -649,7 +812,17 @@ class ContextStore:
                 (summary, envelope_json, now, through_message_id, session_id),
             )
 
-    def _invalidate_summary(self, session_id: str) -> None:
+    def _invalidate_summary(
+        self,
+        session_id: str,
+        *,
+        metadata: Optional[dict] = None,
+    ) -> None:
+        row = self._conn.execute(
+            "SELECT summary_through_message_id, summary_revision "
+            "FROM sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
         self._conn.execute(
             """UPDATE sessions
                SET summary = NULL, summary_envelope = NULL, summary_updated_at = NULL,
@@ -657,6 +830,15 @@ class ContextStore:
                    summary_revision = summary_revision + 1
                WHERE id = ?""",
             (session_id,),
+        )
+        event_metadata = dict(metadata or {})
+        if row:
+            event_metadata.setdefault("prior_watermark", row[0])
+            event_metadata.setdefault("prior_revision", int(row[1] or 0))
+        self._record_event_locked(
+            session_id,
+            "summary_invalidated",
+            event_metadata,
         )
 
     def get_full_for_compaction(self, session_id: str) -> List[Message]:
@@ -700,6 +882,7 @@ class ContextStore:
         head_ids: List[int],
         *,
         delete_summarized: bool = False,
+        event_metadata: Optional[dict] = None,
     ) -> bool:
         """Atomically commit a guarded compaction summary.
 
@@ -752,6 +935,20 @@ class ContextStore:
                                WHERE session_id = ? AND dropped_at IS NULL
                            ) WHERE id = ?""",
                         (session_id, session_id),
+                    )
+                if event_metadata is not None:
+                    completed_metadata = dict(event_metadata)
+                    completed_metadata.setdefault("watermark", through_message_id)
+                    completed_metadata.setdefault("summarized_count", len(head_ids))
+                    completed_metadata.setdefault("revision", current_rev + 1)
+                    completed_metadata.setdefault(
+                        "deleted_count", len(head_ids) if delete_summarized else 0
+                    )
+                    self._record_event_locked(
+                        session_id,
+                        "compaction_completed",
+                        completed_metadata,
+                        timestamp=now,
                     )
                 self._conn.execute("COMMIT")
                 return True
@@ -897,7 +1094,14 @@ class ContextStore:
             missing_estimates=missing,
         )
 
-    def _hard_delete(self, session_id: str, where_clause: str, params: Tuple) -> int:
+    def _hard_delete(
+        self,
+        session_id: str,
+        where_clause: str,
+        params: Tuple,
+        *,
+        event_metadata: Optional[dict] = None,
+    ) -> int:
         """Common hard-delete path. Returns rows actually deleted.
 
         Decrements sessions.message_count by the count of LIVE rows
@@ -913,6 +1117,12 @@ class ContextStore:
                     f"AND dropped_at IS NULL AND ({where_clause})",
                     (session_id, *params),
                 ).fetchone()[0]
+                matched_rows = self._conn.execute(
+                    f"SELECT id FROM messages WHERE session_id = ? AND ({where_clause}) "
+                    "ORDER BY id ASC",
+                    (session_id, *params),
+                ).fetchall()
+                deleted_ids = [int(r[0]) for r in matched_rows]
                 cur = self._conn.execute(
                     f"DELETE FROM messages WHERE session_id = ? AND ({where_clause})",
                     (session_id, *params),
@@ -921,12 +1131,31 @@ class ContextStore:
                 if deleted:
                     self._conn.execute(
                         "UPDATE sessions "
-                        "SET message_count = MAX(0, message_count - ?), "
-                        "summary = NULL, summary_envelope = NULL, summary_updated_at = NULL, "
-                        "summary_through_message_id = NULL, "
-                        "summary_revision = summary_revision + 1 "
+                        "SET message_count = MAX(0, message_count - ?) "
                         "WHERE id = ?",
                         (int(live_n), session_id),
+                    )
+                    base_metadata = dict(event_metadata or {})
+                    base_metadata.update(
+                        {
+                            "count": deleted,
+                            "live_count": int(live_n or 0),
+                            "message_ids": deleted_ids,
+                        }
+                    )
+                    self._invalidate_summary(
+                        session_id,
+                        metadata={
+                            "reason": "messages_dropped",
+                            "count": deleted,
+                            "live_count": int(live_n or 0),
+                            "message_ids": deleted_ids,
+                        },
+                    )
+                    self._record_event_locked(
+                        session_id,
+                        "messages_dropped",
+                        base_metadata,
                     )
                 self._conn.execute("COMMIT")
                 return deleted
@@ -941,13 +1170,19 @@ class ContextStore:
         ids = [int(i) for i in msg_ids]
         placeholders = ",".join("?" for _ in ids)
         return self._hard_delete(
-            session_id, f"id IN ({placeholders})", tuple(ids)
+            session_id,
+            f"id IN ({placeholders})",
+            tuple(ids),
+            event_metadata={"mode": "message_ids"},
         )
 
     def drop_by_tool(self, session_id: str, tool_name: str) -> int:
         """Hard DELETE every row in the session whose tool_name == tool_name."""
         return self._hard_delete(
-            session_id, "tool_name = ?", (tool_name,)
+            session_id,
+            "tool_name = ?",
+            (tool_name,),
+            event_metadata={"mode": "tool_name", "tool_name": tool_name},
         )
 
     def drop_range(self, session_id: str, from_id: int, to_id: int) -> int:
@@ -955,7 +1190,10 @@ class ContextStore:
         if from_id > to_id:
             return 0
         return self._hard_delete(
-            session_id, "id BETWEEN ? AND ?", (int(from_id), int(to_id))
+            session_id,
+            "id BETWEEN ? AND ?",
+            (int(from_id), int(to_id)),
+            event_metadata={"mode": "range", "from_id": int(from_id), "to_id": int(to_id)},
         )
 
     def set_model(self, session_id: str, model: Optional[str]) -> None:

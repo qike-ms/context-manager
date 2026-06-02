@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from context_manager import Compactor, ContextStore
+from context_manager import Compactor, ContextStore, Message
 from context_manager.compactor import CompactorConfig
 
 
@@ -50,6 +50,71 @@ async def test_below_delta_threshold_noops(store):
 
 
 @pytest.mark.asyncio
+async def test_below_delta_threshold_records_skipped_event(store):
+    sid = "s"
+    seed(store, sid, 3)
+
+    async def summarize(msgs, prior):
+        return "summary"
+
+    c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=4, keep_verbatim_n=1))
+    await c._compact_one(sid)
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events] == ["compaction_skipped"]
+    assert events[0].metadata["reason"] == "below_threshold"
+    assert events[0].metadata["delta_count"] == 3
+    assert events[0].metadata["min_messages_to_summarize"] == 4
+
+
+@pytest.mark.asyncio
+async def test_missing_summarize_fn_records_skipped_event(store):
+    c = Compactor(store, None, CompactorConfig(enabled=True, min_messages_to_summarize=1))
+    await c._compact_one("s")
+
+    events = store.iter_events("s")
+    assert [e.event_type for e in events] == ["compaction_skipped"]
+    assert events[0].metadata["reason"] == "summarize_fn_missing"
+
+
+@pytest.mark.asyncio
+async def test_no_head_records_skipped_event(store):
+    sid = "s"
+    seed(store, sid, 5)
+
+    async def summarize(msgs, prior):
+        return "summary"
+
+    c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=5, keep_verbatim_n=5))
+    await c._compact_one(sid)
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events] == ["compaction_skipped"]
+    assert events[0].metadata["reason"] == "no_head"
+    assert events[0].metadata["keep_verbatim_n"] == 5
+
+
+@pytest.mark.asyncio
+async def test_missing_message_ids_records_skipped_event(store):
+    sid = "s"
+    store.get_compaction_delta = lambda session_id, prior, watermark: [
+        Message(id=None, role="user", content="no id"),
+        Message(id=2, role="user", content="tail"),
+    ]
+
+    async def summarize(msgs, prior):
+        return "summary"
+
+    c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=2, keep_verbatim_n=1))
+    await c._compact_one(sid)
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events] == ["compaction_skipped"]
+    assert events[0].metadata["reason"] == "missing_ids"
+    assert events[0].metadata["head_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_compacts_head_and_stores_watermark(store):
     sid = "s"
     ids = seed(store, sid, 5)
@@ -74,6 +139,33 @@ async def test_compacts_head_and_stores_watermark(store):
     assert envelope.through_message_id == ids[2]
     assert envelope.safety_policy == "reference_material_not_active_instructions"
     assert envelope.source == "compactor"
+
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events] == [
+        "compaction_started",
+        "compaction_completed",
+    ]
+    assert events[0].metadata["summarized_count"] == 3
+    assert events[0].metadata["target_watermark"] == ids[2]
+    assert events[1].metadata["watermark"] == ids[2]
+    assert events[1].metadata["summarized_count"] == 3
+    assert events[1].metadata["revision"] == 1
+
+
+@pytest.mark.asyncio
+async def test_compaction_started_is_recorded_before_summarize_callback(store):
+    sid = "s"
+    seed(store, sid, 5)
+    seen = {}
+
+    async def summarize(msgs, prior):
+        seen["event_types"] = [e.event_type for e in store.iter_events(sid)]
+        return "summary"
+
+    c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=5, keep_verbatim_n=2))
+    await c._compact_one(sid)
+
+    assert seen["event_types"] == ["compaction_started"]
 
 
 @pytest.mark.asyncio
@@ -142,6 +234,8 @@ async def test_concurrent_hard_drop_aborts_writeback(store):
     c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=5, keep_verbatim_n=2))
     await c._compact_one(sid)
     assert store.get_summary(sid) is None
+    event_types = [e.event_type for e in store.iter_events(sid)]
+    assert event_types[-1] == "compaction_aborted_revision_changed"
 
 
 @pytest.mark.asyncio
@@ -156,6 +250,29 @@ async def test_concurrent_soft_delete_aborts_writeback(store):
     c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=5, keep_verbatim_n=2))
     await c._compact_one(sid)
     assert store.get_summary(sid) is None
+
+
+@pytest.mark.asyncio
+async def test_revision_conflict_aborts_and_preserves_prior_summary(store):
+    sid = "s"
+    seed(store, sid, 5)
+    store.set_summary(sid, "prior")
+
+    async def summarize(msgs, prior):
+        store._conn.execute(
+            "UPDATE sessions SET summary_revision = summary_revision + 1 WHERE id = ?",
+            (sid,),
+        )
+        return "stale summary"
+
+    c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=5, keep_verbatim_n=2))
+    await c._compact_one(sid)
+
+    assert store.get_summary(sid) == "prior"
+    assert [e.event_type for e in store.iter_events(sid)] == [
+        "compaction_started",
+        "compaction_aborted_revision_changed",
+    ]
 
 
 def test_summary_invalidation_clears_watermark(store):
@@ -193,6 +310,12 @@ async def test_empty_summary_keeps_prior(store):
     c = Compactor(store, summarize, CompactorConfig(enabled=True, min_messages_to_summarize=5, keep_verbatim_n=2))
     await c._compact_one(sid)
     assert store.get_summary(sid) == "prior"
+    events = store.iter_events(sid)
+    assert [e.event_type for e in events] == [
+        "compaction_started",
+        "compaction_skipped",
+    ]
+    assert events[1].metadata["reason"] == "empty_summary"
 
 
 @pytest.mark.asyncio
