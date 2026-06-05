@@ -19,6 +19,16 @@ from pathlib import Path
 from typing import Any, Iterable, List, Literal, Optional, Tuple, Union
 
 from .windows import get_window as _get_window
+from .offload import (
+    OffloadPolicy,
+    OffloadRecord,
+    build_preview,
+    delete_offload_file,
+    offload_file_path,
+    read_offload_slice,
+    session_dir,
+    write_offload_file,
+)
 
 
 SCHEMA = """
@@ -62,6 +72,19 @@ CREATE TABLE IF NOT EXISTS context_events (
 );
 CREATE INDEX IF NOT EXISTS idx_context_events_session
     ON context_events(session_id, id);
+
+CREATE TABLE IF NOT EXISTS offload_records (
+    message_id      INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+    session_id      TEXT NOT NULL REFERENCES sessions(id),
+    path            TEXT NOT NULL,
+    original_tokens INTEGER NOT NULL,
+    original_lines  INTEGER NOT NULL,
+    original_chars  INTEGER NOT NULL,
+    created_at      REAL NOT NULL,
+    deleted         INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_offload_records_session
+    ON offload_records(session_id);
 
 CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY);
 INSERT OR IGNORE INTO schema_version(version) VALUES (1);
@@ -214,6 +237,7 @@ class ContextStore:
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.executescript(SCHEMA)
         self._apply_migrations()
+        self._offload_policy: OffloadPolicy = OffloadPolicy()
 
     def _apply_migrations(self) -> None:
         """Idempotently add columns through the latest schema version."""
@@ -256,6 +280,22 @@ class ContextStore:
             self._conn.execute(
                 """CREATE INDEX IF NOT EXISTS idx_context_events_session
                    ON context_events(session_id, id)"""
+            )
+            self._conn.execute(
+                """CREATE TABLE IF NOT EXISTS offload_records (
+                       message_id      INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+                       session_id      TEXT NOT NULL REFERENCES sessions(id),
+                       path            TEXT NOT NULL,
+                       original_tokens INTEGER NOT NULL,
+                       original_lines  INTEGER NOT NULL,
+                       original_chars  INTEGER NOT NULL,
+                       created_at      REAL NOT NULL,
+                       deleted         INTEGER NOT NULL DEFAULT 0
+                   )"""
+            )
+            self._conn.execute(
+                """CREATE INDEX IF NOT EXISTS idx_offload_records_session
+                   ON offload_records(session_id)"""
             )
             # Backfill token_estimate for existing rows that have content.
             self._backfill_token_estimates()
@@ -437,6 +477,12 @@ class ContextStore:
 
         INSERT(messages) + UPDATE(sessions.message_count) are wrapped in a
         single transaction to keep the counter in sync with reality.
+
+        If an :class:`OffloadPolicy` is enabled and the new message exceeds
+        the configured token threshold, the full body is spilled to a
+        per-session file and ``content`` is replaced with a head/tail
+        preview before the row is finalized. A ``"offload"`` audit event
+        is emitted.
         """
         tool_calls_json = (
             json.dumps(tool_calls)
@@ -455,6 +501,14 @@ class ContextStore:
             )
         except Exception:
             token_estimate = None
+        policy = self._offload_policy
+        should_offload = bool(
+            policy.enabled
+            and content is not None
+            and isinstance(content, str)
+            and token_estimate is not None
+            and token_estimate >= policy.threshold_tokens
+        )
         with self._lock:
             # ensure_session inline + INSERT + UPDATE under one BEGIN.
             self._conn.execute("BEGIN")
@@ -481,15 +535,194 @@ class ContextStore:
                         token_estimate,
                     ),
                 )
+                message_id = int(cur.lastrowid or 0)
                 self._conn.execute(
                     "UPDATE sessions SET message_count = message_count + 1 WHERE id = ?",
                     (session_id,),
                 )
+                if should_offload and message_id:
+                    self._apply_offload_locked(
+                        session_id, message_id, content or "", token_estimate or 0
+                    )
                 self._conn.execute("COMMIT")
             except Exception:
                 self._conn.execute("ROLLBACK")
                 raise
-            return int(cur.lastrowid or 0)
+            return message_id
+
+    def _apply_offload_locked(
+        self,
+        session_id: str,
+        message_id: int,
+        content: str,
+        token_estimate: int,
+    ) -> None:
+        """Spill ``content`` to disk and replace the stored row with a preview.
+
+        Must be called inside the active write transaction on ``self._lock``.
+        The file write happens before the row update so a crash mid-way still
+        leaves the on-disk file as evidence; the in-DB content is only
+        replaced once the file is durable on disk.
+        """
+        policy = self._offload_policy
+        path = offload_file_path(policy, session_id, message_id)
+        write_offload_file(path, content)
+        preview = build_preview(
+            content,
+            head_lines=policy.head_lines,
+            tail_lines=policy.tail_lines,
+            path=path,
+        )
+        now = time.time()
+        original_chars = len(content)
+        original_lines = content.count("\n") + (0 if content.endswith("\n") else 1) if content else 0
+        try:
+            from .token_estimator import estimate_tokens
+            preview_tokens = int(
+                estimate_tokens(preview, backend="default", include_overhead=False)
+            )
+        except Exception:
+            preview_tokens = max(1, len(preview) // 4) if preview else 0
+        self._conn.execute(
+            "UPDATE messages SET content = ?, token_estimate = ? WHERE id = ?",
+            (preview, preview_tokens, message_id),
+        )
+        self._conn.execute(
+            """INSERT OR REPLACE INTO offload_records
+                   (message_id, session_id, path, original_tokens,
+                    original_lines, original_chars, created_at, deleted)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0)""",
+            (
+                message_id,
+                session_id,
+                str(path),
+                int(token_estimate or 0),
+                int(original_lines),
+                int(original_chars),
+                now,
+            ),
+        )
+        self._record_event_locked(
+            session_id,
+            "offload",
+            {
+                "message_id": message_id,
+                "path": str(path),
+                "original_tokens": int(token_estimate or 0),
+                "original_lines": int(original_lines),
+                "original_chars": int(original_chars),
+                "preview_tokens": int(preview_tokens),
+            },
+            timestamp=now,
+        )
+
+    # ---------- offload policy / read API ----------
+    def set_offload_policy(self, policy: OffloadPolicy) -> None:
+        """Install a new :class:`OffloadPolicy`. Affects future appends only."""
+        if not isinstance(policy, OffloadPolicy):
+            raise TypeError("policy must be an OffloadPolicy")
+        with self._lock:
+            self._offload_policy = policy
+
+    def get_offload_policy(self) -> OffloadPolicy:
+        """Return the active policy."""
+        return self._offload_policy
+
+    def get_offload(self, message_id: int) -> Optional[OffloadRecord]:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT message_id, path, original_tokens, original_lines, "
+                "original_chars, created_at, deleted "
+                "FROM offload_records WHERE message_id = ?",
+                (int(message_id),),
+            ).fetchone()
+        if not row:
+            return None
+        return OffloadRecord(
+            message_id=int(row[0]),
+            path=Path(row[1]),
+            original_tokens=int(row[2]),
+            original_lines=int(row[3]),
+            original_chars=int(row[4]),
+            created_at=float(row[5]),
+            deleted=bool(row[6]),
+        )
+
+    def read_offload(
+        self,
+        message_id: int,
+        offset: int = 0,
+        limit: Optional[int] = None,
+    ) -> str:
+        """Read a slice of the offloaded payload for ``message_id``.
+
+        Raises ``KeyError`` if no offload record exists, ``FileNotFoundError``
+        if the file has been removed (e.g. drop cleanup).
+        """
+        rec = self.get_offload(message_id)
+        if rec is None:
+            raise KeyError(f"no offload record for message_id={message_id}")
+        if rec.deleted:
+            raise FileNotFoundError(
+                f"offload for message_id={message_id} has been deleted"
+            )
+        return read_offload_slice(rec.path, offset=offset, limit=limit)
+
+    def iter_offloads(self, session_id: str) -> List[OffloadRecord]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT message_id, path, original_tokens, original_lines, "
+                "original_chars, created_at, deleted "
+                "FROM offload_records WHERE session_id = ? ORDER BY message_id ASC",
+                (session_id,),
+            ).fetchall()
+        return [
+            OffloadRecord(
+                message_id=int(r[0]),
+                path=Path(r[1]),
+                original_tokens=int(r[2]),
+                original_lines=int(r[3]),
+                original_chars=int(r[4]),
+                created_at=float(r[5]),
+                deleted=bool(r[6]),
+            )
+            for r in rows
+        ]
+
+    def _cleanup_offloads_for_messages_locked(
+        self, session_id: str, message_ids: List[int]
+    ) -> int:
+        """Remove offload files for hard-deleted message ids. Returns count cleaned."""
+        if not message_ids:
+            return 0
+        policy = self._offload_policy
+        placeholders = ",".join("?" for _ in message_ids)
+        rows = self._conn.execute(
+            f"SELECT message_id, path FROM offload_records "
+            f"WHERE session_id = ? AND message_id IN ({placeholders})",
+            (session_id, *message_ids),
+        ).fetchall()
+        cleaned = 0
+        for mid, path in rows:
+            quarantine_dir = session_dir(policy, session_id)
+            removed = delete_offload_file(
+                Path(path),
+                quarantine=policy.quarantine_on_drop,
+                quarantine_dir=quarantine_dir,
+            )
+            self._conn.execute(
+                "UPDATE offload_records SET deleted = 1 WHERE message_id = ?",
+                (int(mid),),
+            )
+            if removed:
+                cleaned += 1
+        # We intentionally KEEP the offload_records row (with deleted=1) for
+        # provenance / audit. Foreign keys are NOT enabled on this connection,
+        # so DELETE FROM messages does not cascade. Cleanup ordering in
+        # _hard_delete still puts file removal BEFORE the messages DELETE so
+        # this remains safe even if a future migration enables FK cascade.
+        return cleaned
+
 
     def pop_last_n(self, session_id: str, n: int) -> int:
         """Soft-delete the last `n` non-dropped messages for `session_id`.
@@ -928,6 +1161,17 @@ class ContextStore:
                     (summary, envelope_json, now, through_message_id, session_id),
                 )
                 if delete_summarized:
+                    summarized_ids = [
+                        int(r[0])
+                        for r in self._conn.execute(
+                            "SELECT id FROM messages WHERE session_id = ? AND id <= ?",
+                            (session_id, through_message_id),
+                        ).fetchall()
+                    ]
+                    if summarized_ids:
+                        self._cleanup_offloads_for_messages_locked(
+                            session_id, summarized_ids
+                        )
                     self._conn.execute(
                         "DELETE FROM messages WHERE session_id = ? AND id <= ?",
                         (session_id, through_message_id),
@@ -1126,6 +1370,11 @@ class ContextStore:
                     (session_id, *params),
                 ).fetchall()
                 deleted_ids = [int(r[0]) for r in matched_rows]
+                # Clean up offload files BEFORE the row delete so a future
+                # PRAGMA foreign_keys=ON / ON DELETE CASCADE cannot drop the
+                # offload_records rows before we read their paths.
+                if deleted_ids:
+                    self._cleanup_offloads_for_messages_locked(session_id, deleted_ids)
                 cur = self._conn.execute(
                     f"DELETE FROM messages WHERE session_id = ? AND ({where_clause})",
                     (session_id, *params),

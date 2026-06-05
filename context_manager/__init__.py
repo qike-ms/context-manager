@@ -17,6 +17,7 @@ from .compactor import (
     prune_tool_outputs,
     render_for_summary,
 )
+from .offload import OffloadPolicy, OffloadRecord
 from .windows import get_window
 from .memory import (
     MemoryBackend,
@@ -45,6 +46,8 @@ __all__ = [
     "PrunePolicy",
     "prune_tool_outputs",
     "render_for_summary",
+    "OffloadPolicy",
+    "OffloadRecord",
     "get_window",
     "MemorySearch",
     "MemoryBackend",
