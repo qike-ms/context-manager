@@ -69,6 +69,16 @@ Targeting Python 3.9+ (macOS system python). No third-party deps in core.
 
 SemVer. Pre-1.0: breaking changes allowed on minor bumps; document in README.
 
+After changing `[project].version`, sync the primary consumer dependency:
+
+```bash
+python scripts/sync_agent_dispatcher_dependency.py
+```
+
+This updates the sibling `../agent-dispatcher/pyproject.toml` requirement from
+the current `context-manager` version. Use `--check` in automation to fail on
+drift without writing files.
+
 ## Related
 
 - `qike-ms/agent-dispatcher` — primary consumer

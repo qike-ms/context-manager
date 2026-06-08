@@ -50,6 +50,25 @@ store.drop_range(sid, from_id=10, to_id=20)
 
 Design + edge cases: `docs/design/listing-and-drop-api.md`.
 
+## Tool-result offload (opt-in)
+
+Spill oversized tool results to disk so a single 50KB `cargo build` or
+repo-wide `rg` dump cannot poison the next prompt. Stored content is
+replaced with a `head + truncation marker + tail + path` preview; the
+full payload stays on disk and is readable on demand.
+
+```python
+from context_manager import ContextStore, OffloadPolicy
+
+store = ContextStore("~/.agent-dispatcher/context.db")
+store.set_offload_policy(OffloadPolicy(enabled=True, threshold_tokens=4000))
+mid = store.append("chat-42:thread-7", "tool", content=huge_tool_output)
+preview = store.get_recent("chat-42:thread-7")[-1].content  # short head+tail+path
+full   = store.read_offload(mid)                            # full original
+```
+
+`store.drop_messages([...])` also removes (or quarantines) the offload file.
+
 ## Public API
 
 | Symbol | What |
