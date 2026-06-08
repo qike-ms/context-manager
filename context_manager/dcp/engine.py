@@ -559,6 +559,8 @@ _NUDGE_TEXT = (
     "If there is a closed portion of the conversation (finished research, "
     "completed sub-task, resolved error) that is unlikely to be needed immediately, "
     "call the `compress` tool to summarise it now. "
+    "Each visible message is prefixed with `[#N]` where N is its message id; "
+    "pass these ids as `start_message_id` and `end_message_id` to compress a range. "
     "Write a high-fidelity technical summary covering: Goal, Progress, "
     "Key Decisions, Next Steps, Relevant Files."
 )

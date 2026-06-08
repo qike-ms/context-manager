@@ -57,6 +57,11 @@ class DCPPurgeErrorsConfig:
 @dataclass
 class DCPConfig:
     enabled: bool = True
+    # Render each outbound message's _ctx_id inline as a [#N] prefix so the
+    # model can reference messages by id when calling the compress tool.
+    # Without this the model cannot construct a valid compress() call because
+    # the start_message_id / end_message_id args have no visible source.
+    render_ctx_ids: bool = True
     nudge: DCPNudgeConfig = field(default_factory=DCPNudgeConfig)
     protections: DCPProtectionsConfig = field(default_factory=DCPProtectionsConfig)
     dedupe: DCPDedupeConfig = field(default_factory=DCPDedupeConfig)
@@ -66,6 +71,7 @@ class DCPConfig:
     def from_env(cls) -> "DCPConfig":
         """Load a DCPConfig from environment variables (all optional)."""
         enabled = os.environ.get("DCP_ENABLED", "1") == "1"
+        render_ids = os.environ.get("DCP_RENDER_CTX_IDS", "1") == "1"
         fill = float(os.environ.get("DCP_FILL_THRESHOLD", "0.65"))
         cooldown = int(os.environ.get("DCP_COOLDOWN_TURNS", "10"))
         repeat = int(os.environ.get("DCP_REPEAT_EVERY_TURNS", "5"))
@@ -73,6 +79,7 @@ class DCPConfig:
         protect_user = os.environ.get("DCP_PROTECT_USER_MESSAGES", "0") == "1"
         return cls(
             enabled=enabled,
+            render_ctx_ids=render_ids,
             nudge=DCPNudgeConfig(
                 context_fill_threshold=fill,
                 cooldown_turns=cooldown,

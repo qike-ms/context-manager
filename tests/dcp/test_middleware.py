@@ -160,3 +160,75 @@ def test_tag_ctx_ids_from_store_messages():
     assert tagged[0]["_ctx_id"] == 42
     assert tagged[1]["_ctx_id"] == 43
     assert tagged[0]["role"] == "user"
+
+
+# ── render_ctx_ids: inline [#N] marker so model can call compress with ids ────
+
+def test_render_ctx_ids_prefixes_message_content_by_default(middleware):
+    """Default config.render_ctx_ids=True must prepend [#N] to each message."""
+    messages = [
+        {"role": "user",      "content": "hello", "_ctx_id": 42},
+        {"role": "assistant", "content": "world", "_ctx_id": 43},
+    ]
+    out = middleware.build_outbound("s1", messages, fill_ratio=0.0)
+    assert out[0]["content"] == "[#42] hello"
+    assert out[1]["content"] == "[#43] world"
+    # Still strips the private key after rendering.
+    assert "_ctx_id" not in out[0]
+    assert "_ctx_id" not in out[1]
+
+
+def test_render_ctx_ids_disabled_leaves_content_untouched(conn):
+    cfg = DCPConfig(enabled=True, render_ctx_ids=False)
+    mw = DCPMiddleware(conn, cfg)
+    messages = [{"role": "user", "content": "hello", "_ctx_id": 42}]
+    out = mw.build_outbound("s1", messages, fill_ratio=0.0)
+    assert out[0]["content"] == "hello"
+    assert "_ctx_id" not in out[0]
+
+
+def test_render_ctx_ids_skips_placeholder_and_nudge(middleware):
+    """Placeholder + nudge system messages have no _ctx_id; they must pass through verbatim."""
+    middleware.note_user_turn("s1")  # turn=1
+    messages = [
+        {"role": "user",      "content": "a", "_ctx_id": 1},
+        {"role": "assistant", "content": "b", "_ctx_id": 2},
+    ]
+    # Build a range placeholder first (this sets last_compress_turn=1).
+    middleware.handle_compress(
+        "s1", messages,
+        {"mode": "range", "start_message_id": "1", "end_message_id": "2",
+         "summary": "SUMMARY"},
+    )
+    # Advance turns so cooldown (10) elapses → turn=11, turns_since=10.
+    for _ in range(10):
+        middleware.note_user_turn("s1")
+    # Now build outbound at high fill so nudge appends too.
+    out = middleware.build_outbound("s1", messages, fill_ratio=0.99)
+    # Placeholder content begins with "[DCP placeholder" — must NOT be re-prefixed.
+    placeholders = [m for m in out if m.get("content", "").startswith("[DCP placeholder")]
+    assert len(placeholders) == 1
+    assert not placeholders[0]["content"].startswith("[#")  # no double prefix
+    # Nudge content starts with "[context-manager DCP]" — also no re-prefix.
+    nudges = [m for m in out if "context-manager DCP" in m.get("content", "")]
+    assert len(nudges) == 1
+    assert not nudges[0]["content"].startswith("[#")
+
+
+def test_render_ctx_ids_handles_non_string_content_safely(middleware):
+    """Multimodal/list content must be skipped, not corrupted."""
+    messages = [
+        {"role": "user", "content": [{"type": "text", "text": "x"}], "_ctx_id": 7},
+    ]
+    out = middleware.build_outbound("s1", messages, fill_ratio=0.0)
+    # Content untouched; key still stripped.
+    assert out[0]["content"] == [{"type": "text", "text": "x"}]
+    assert "_ctx_id" not in out[0]
+
+
+def test_nudge_text_mentions_id_prefix_format():
+    """Regression: nudge must explain the [#N] prefix so the model knows what to pass."""
+    from context_manager.dcp.engine import _NUDGE_TEXT
+    assert "[#N]" in _NUDGE_TEXT
+    assert "start_message_id" in _NUDGE_TEXT
+    assert "end_message_id" in _NUDGE_TEXT

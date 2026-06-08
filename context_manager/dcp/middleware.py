@@ -105,6 +105,8 @@ class DCPMiddleware:
             fill_threshold=self._config.nudge.context_fill_threshold,
         )
 
+        if self._config.render_ctx_ids:
+            out = _render_ctx_ids_inline(out)
         return _strip_private_keys(out)
 
     def tool_schema(self) -> Dict[str, Any]:
@@ -207,4 +209,27 @@ def _strip_private_keys(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if any(k in msg for k in private):
             msg = {k: v for k, v in msg.items() if k not in private}
         out.append(msg)
+    return out
+
+
+def _render_ctx_ids_inline(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Prepend `[#<id>] ` to each message content so the model can reference
+    messages by id when calling the compress tool.
+
+    Only messages with a `_ctx_id` key are touched.  Placeholders, system
+    messages without an id, and the nudge are left alone.  The content must
+    already be a string; messages with non-string (e.g. list/multimodal)
+    content are skipped to avoid corrupting structured payloads.
+    """
+    out: List[Dict[str, Any]] = []
+    for msg in messages:
+        cid = msg.get("_ctx_id")
+        content = msg.get("content")
+        if cid is None or not isinstance(content, str):
+            out.append(msg)
+            continue
+        prefixed = f"[#{cid}] {content}"
+        new_msg = dict(msg)
+        new_msg["content"] = prefixed
+        out.append(new_msg)
     return out
