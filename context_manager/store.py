@@ -239,6 +239,16 @@ class ContextStore:
         self._apply_migrations()
         self._offload_policy: OffloadPolicy = OffloadPolicy()
 
+    def connection(self) -> sqlite3.Connection:
+        """Return the underlying SQLite connection for colocated extensions.
+
+        This is an extension seam for components such as DCP placeholders that
+        need tables in the same database file. Callers must not close the
+        connection and should use ContextStore methods for message/session
+        mutations to preserve store invariants.
+        """
+        return self._conn
+
     def _apply_migrations(self) -> None:
         """Idempotently add columns through the latest schema version."""
         with self._lock:

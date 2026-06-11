@@ -29,6 +29,17 @@ def test_append_and_get_recent(store):
     assert [m.content for m in recent] == ["hello", "hi there", "how are you"]
 
 
+def test_connection_returns_live_sqlite_connection(store):
+    conn = store.connection()
+    assert conn.execute("SELECT 1").fetchone()[0] == 1
+    store.append("connection-session", "user", "hello")
+    row = conn.execute(
+        "SELECT COUNT(*) FROM messages WHERE session_id = ?",
+        ("connection-session",),
+    ).fetchone()
+    assert row[0] == 1
+
+
 def test_get_recent_limit_returns_chronological(store):
     sid = "chat-1:None"
     for i in range(5):

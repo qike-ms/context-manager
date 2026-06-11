@@ -69,6 +69,35 @@ full   = store.read_offload(mid)                            # full original
 
 `store.drop_messages([...])` also removes (or quarantines) the offload file.
 
+## Sidecar (optional)
+
+Non-Python hosts can use `context-manager` and DCP through a local HTTP
+sidecar over a Unix domain socket. Core installs remain dependency-free; install
+the optional sidecar extra when you need the daemon:
+
+```bash
+pip install -e .[sidecar]
+context-manager-sidecar \
+  --socket "${XDG_RUNTIME_DIR:-$HOME/.local/run}/ctxmgr/ctxmgr.sock" \
+  --db "$HOME/.local/share/ctxmgr/ctxmgr.db"
+```
+
+Endpoints are versioned under `/v1`:
+
+- `GET /v1/healthz`
+- `POST /v1/sessions/{sid}/append`
+- `POST /v1/sessions/{sid}/build_outbound`
+- `POST /v1/sessions/{sid}/compress`
+- `GET /v1/sessions/{sid}/usage`
+- `POST /v1/sessions/{sid}/set_model`
+- `GET /v1/sessions/{sid}/placeholders`
+- `POST /v1/sessions/{sid}/placeholders/{pid}/deactivate`
+- `GET /v1/sessions/{sid}/parent_summary`
+
+Design details and the one-sidecar-per-host model are documented in
+`docs/design/sidecar-architecture.md`. A sample systemd user unit is in
+`etc/systemd/context-manager-sidecar.service`.
+
 ## Public API
 
 | Symbol | What |
@@ -79,6 +108,7 @@ full   = store.read_offload(mid)                            # full original
 | `NoopMemoryBackend` | Default no-op adapter. Always safe. |
 | `HermesMemoryBackend` | Writes mirrored turns into `~/.hermes/state.db`. |
 | `MemorySearch` | Query facade over a `MemoryBackend`. |
+| `DCPConfig`, `DCPMiddleware`, `CompressTool` | Dynamic Context Pruning integration primitives. |
 
 ## Status
 

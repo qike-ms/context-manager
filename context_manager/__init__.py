@@ -33,6 +33,13 @@ from .token_estimator import (
     CORRECTION_FACTORS,
     OVERHEAD_TOKENS,
 )
+from .dcp import (
+    DCPConfig,
+    DCPMiddleware,
+    CompressTool,
+    PlaceholderStore,
+    tag_ctx_ids,
+)
 
 __all__ = [
     "ContextStore",
@@ -59,6 +66,11 @@ __all__ = [
     "CALIBRATION",
     "CORRECTION_FACTORS",
     "OVERHEAD_TOKENS",
+    "DCPConfig",
+    "DCPMiddleware",
+    "CompressTool",
+    "PlaceholderStore",
+    "tag_ctx_ids",
 ]
 
 __version__ = "0.1.0"

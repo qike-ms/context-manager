@@ -1,0 +1,13 @@
+[Unit]
+Description=context-manager sidecar
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/context-manager-sidecar
+Restart=on-failure
+RestartSec=2
+Environment=CTXMGR_SOCK=%t/ctxmgr/ctxmgr.sock
+
+[Install]
+WantedBy=default.target
