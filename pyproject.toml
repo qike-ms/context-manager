@@ -13,11 +13,13 @@ authors = [{ name = "qike-ms" }]
 dependencies = []
 
 [project.optional-dependencies]
-sidecar = ["fastapi>=0.110", "uvicorn>=0.29"]
-dev = ["pytest>=7", "pytest-asyncio>=0.21", "tiktoken>=0.7", "fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27"]
+sidecar = ["fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27"]
+mcp = ["mcp>=1.2.0; python_version >= '3.10'", "httpx>=0.27"]
+dev = ["pytest>=7", "pytest-asyncio>=0.21", "tiktoken>=0.7", "fastapi>=0.110", "uvicorn>=0.29", "httpx>=0.27", "mcp>=1.2.0; python_version >= '3.10'"]
 
 [project.scripts]
 context-manager-sidecar = "context_manager.sidecar:main"
+context-manager-mcp = "context_manager.mcp_server:main"
 
 [tool.setuptools.packages.find]
 include = ["context_manager*"]

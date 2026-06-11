@@ -15,3 +15,4 @@ dist/
 
 # swe-supervisor runtime
 .swe-supervisor/
+.omx/

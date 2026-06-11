@@ -63,7 +63,7 @@ parent context into child prompts automatically.
 The core package remains dependency-free. Sidecar dependencies are optional:
 
 ```bash
-pip install context-manager[sidecar]
+pip install 'context-manager[sidecar]'
 ```
 
 The top-level `context_manager` import does not import FastAPI or uvicorn.
@@ -88,3 +88,41 @@ context-manager-sidecar \
 ```
 
 See `etc/systemd/context-manager-sidecar.service` for a sample user unit.
+
+## MCP-Only Hosts
+
+Claude Code and Goose can connect via the optional stdio MCP server:
+
+```bash
+pip install -e '.[sidecar,mcp]'  # MCP extra requires Python 3.10+
+context-manager-sidecar \
+  --socket "${XDG_RUNTIME_DIR:-$HOME/.local/run}/ctxmgr/ctxmgr.sock" \
+  --db "$HOME/.local/share/ctxmgr/ctxmgr.db"
+```
+
+```json
+{
+  "mcpServers": {
+    "context-manager": {
+      "command": "context-manager-mcp",
+      "env": {
+        "CTXMGR_SOCK": "/home/qike/.local/run/ctxmgr/ctxmgr.sock"
+      }
+    }
+  }
+}
+```
+
+Goose recipe shape:
+
+```yaml
+extensions:
+  - type: stdio
+    name: context-manager
+    cmd: context-manager-mcp
+    timeout: 300
+```
+
+This mode exposes tools/resources to the model, but it cannot intercept or
+replace the host's outbound request. It is useful for explicit `compress` calls
+and inspection, not full automatic DCP placeholder substitution.

@@ -76,7 +76,7 @@ sidecar over a Unix domain socket. Core installs remain dependency-free; install
 the optional sidecar extra when you need the daemon:
 
 ```bash
-pip install -e .[sidecar]
+pip install -e '.[sidecar]'
 context-manager-sidecar \
   --socket "${XDG_RUNTIME_DIR:-$HOME/.local/run}/ctxmgr/ctxmgr.sock" \
   --db "$HOME/.local/share/ctxmgr/ctxmgr.db"
@@ -97,6 +97,25 @@ Endpoints are versioned under `/v1`:
 Design details and the one-sidecar-per-host model are documented in
 `docs/design/sidecar-architecture.md`. A sample systemd user unit is in
 `etc/systemd/context-manager-sidecar.service`.
+
+## MCP server (optional)
+
+Hosts that only support MCP tools, such as Claude Code or Goose, can use the
+sidecar through a stdio MCP server:
+
+```bash
+pip install -e '.[sidecar,mcp]'  # MCP extra requires Python 3.10+
+context-manager-sidecar \
+  --socket "${XDG_RUNTIME_DIR:-$HOME/.local/run}/ctxmgr/ctxmgr.sock" \
+  --db "$HOME/.local/share/ctxmgr/ctxmgr.db"
+context-manager-mcp
+```
+
+The MCP server exposes tools such as `ctx_health`, `ctx_append`,
+`ctx_build_outbound`, `compress`, `ctx_usage`, `ctx_list_placeholders`, and
+`ctx_deactivate_placeholder`. This is a **lossy integration**: MCP tools cannot
+replace the host's native provider request automatically, so automatic DCP
+placeholder substitution requires host-specific request-transform hooks.
 
 ## Public API
 
