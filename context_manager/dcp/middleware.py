@@ -52,11 +52,13 @@ class DCPMiddleware:
     """
 
     def __init__(self, conn: sqlite3.Connection, config: DCPConfig) -> None:
+        self._conn = conn
         self._ph_store = PlaceholderStore(conn)
         self._config = config
         self._tool = CompressTool()
         # { session_id: {"turn": int, "last_compress_turn": int} }
         self._session_state: Dict[str, Dict[str, int]] = {}
+        self._ensure_nudge_events_schema()
 
     # ── Outbound ──────────────────────────────────────────────────────────────
 
@@ -96,6 +98,7 @@ class DCPMiddleware:
             )
 
         turns_since = state["turn"] - state["last_compress_turn"]
+        before_nudge_len = len(out)
         out = maybe_inject_nudge(
             out,
             fill_ratio=fill_ratio,
@@ -104,6 +107,15 @@ class DCPMiddleware:
             repeat_every_turns=self._config.nudge.repeat_every_turns,
             fill_threshold=self._config.nudge.context_fill_threshold,
         )
+        if len(out) > before_nudge_len and out[-1].get("_dcp_nudge"):
+            self._persist_nudge_event(
+                session_id=session_id,
+                turn=state["turn"],
+                fill_ratio=fill_ratio,
+                fill_threshold=self._config.nudge.context_fill_threshold,
+                turns_since_compress=turns_since,
+                message=out[-1].get("content", ""),
+            )
 
         if self._config.render_ctx_ids:
             out = _render_ctx_ids_inline(out)
@@ -163,6 +175,31 @@ class DCPMiddleware:
     def placeholder_history(self, session_id: str, limit: int = 20):
         return self._ph_store.history_for(session_id, limit=limit)
 
+    def nudge_history(self, session_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Return recent DCP nudge events for debugging flashed context warnings."""
+        columns = [
+            "id",
+            "session_id",
+            "created_at",
+            "turn",
+            "fill_ratio",
+            "fill_threshold",
+            "turns_since_compress",
+            "message",
+        ]
+        rows = self._conn.execute(
+            """
+            SELECT id, session_id, created_at, turn, fill_ratio, fill_threshold,
+                   turns_since_compress, message
+            FROM dcp_nudge_events
+            WHERE session_id = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            """,
+            (session_id, limit),
+        ).fetchall()
+        return [dict(zip(columns, row)) for row in rows]
+
     def deactivate_placeholder(self, session_id: str, placeholder_id: int) -> None:
         """Revert a placeholder to verbatim.  Next build_outbound shows raw messages."""
         self._ph_store.deactivate(placeholder_id)
@@ -176,6 +213,58 @@ class DCPMiddleware:
         if session_id not in self._session_state:
             self._session_state[session_id] = {"turn": 0, "last_compress_turn": -999}
         return self._session_state[session_id]
+
+    def _ensure_nudge_events_schema(self) -> None:
+        self._conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dcp_nudge_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                turn INTEGER NOT NULL,
+                fill_ratio REAL NOT NULL,
+                fill_threshold REAL NOT NULL,
+                turns_since_compress INTEGER NOT NULL,
+                message TEXT NOT NULL
+            )
+            """
+        )
+        self._conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_dcp_nudge_events_session_created
+            ON dcp_nudge_events(session_id, created_at)
+            """
+        )
+        self._conn.commit()
+
+    def _persist_nudge_event(
+        self,
+        *,
+        session_id: str,
+        turn: int,
+        fill_ratio: float,
+        fill_threshold: float,
+        turns_since_compress: int,
+        message: str,
+    ) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO dcp_nudge_events (
+                session_id, created_at, turn, fill_ratio, fill_threshold,
+                turns_since_compress, message
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                time.time(),
+                turn,
+                fill_ratio,
+                fill_threshold,
+                turns_since_compress,
+                message,
+            ),
+        )
+        self._conn.commit()
 
 
 # ── Utility: tag messages with store row ids ──────────────────────────────────
@@ -203,11 +292,10 @@ def tag_ctx_ids(messages) -> List[Dict[str, Any]]:
 
 def _strip_private_keys(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Remove _ctx_id and _dcp_* keys before sending to provider."""
-    private = {"_ctx_id", "_dcp_placeholder", "_dcp_nudge"}
     out = []
     for msg in messages:
-        if any(k in msg for k in private):
-            msg = {k: v for k, v in msg.items() if k not in private}
+        if any(k == "_ctx_id" or k.startswith("_dcp_") for k in msg):
+            msg = {k: v for k, v in msg.items() if k != "_ctx_id" and not k.startswith("_dcp_")}
         out.append(msg)
     return out
 

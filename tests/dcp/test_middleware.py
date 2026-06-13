@@ -48,10 +48,19 @@ def test_build_outbound_noop_when_disabled(conn):
 
 
 def test_build_outbound_strips_private_keys(middleware):
-    messages = [{"role": "user", "content": "hi", "_ctx_id": 1, "_dcp_nudge": True}]
+    messages = [
+        {
+            "role": "user",
+            "content": "hi",
+            "_ctx_id": 1,
+            "_dcp_nudge": True,
+            "_dcp_future_metadata": "private",
+        }
+    ]
     out = middleware.build_outbound("s1", messages, fill_ratio=0.0)
     assert "_ctx_id" not in out[0]
     assert "_dcp_nudge" not in out[0]
+    assert "_dcp_future_metadata" not in out[0]
 
 
 def test_handle_compress_range_success(middleware):
@@ -149,6 +158,28 @@ def test_nudge_not_appended_when_fill_low(middleware):
     out = middleware.build_outbound("s1", messages, fill_ratio=0.30)
     nudge = [m for m in out if m.get("role") == "system" and "DCP" in m.get("content", "")]
     assert len(nudge) == 0
+
+
+def test_nudge_event_persisted_when_injected(middleware):
+    middleware.note_user_turn("s1")
+    messages = [{"role": "user", "content": "x", "_ctx_id": 1}]
+    middleware.build_outbound("s1", messages, fill_ratio=0.80)
+
+    history = middleware.nudge_history("s1")
+    assert len(history) == 1
+    row = history[0]
+    assert row["session_id"] == "s1"
+    assert row["turn"] == 1
+    assert row["fill_ratio"] == 0.80
+    assert row["fill_threshold"] == middleware._config.nudge.context_fill_threshold
+    assert row["turns_since_compress"] == 1000
+    assert "Context is filling up" in row["message"]
+
+
+def test_nudge_event_not_persisted_when_not_injected(middleware):
+    messages = [{"role": "user", "content": "x", "_ctx_id": 1}]
+    middleware.build_outbound("s1", messages, fill_ratio=0.30)
+    assert middleware.nudge_history("s1") == []
 
 
 def test_tag_ctx_ids_from_store_messages():
